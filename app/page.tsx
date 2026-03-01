@@ -2,18 +2,21 @@
 import { useEffect, useState } from "react";
 import { getAuth, signOut } from "firebase/auth";
 import { db, auth, storage, emulatorMode, loadAnalytics } from "../src/lib/firebase-client";
-import { collection, getDocs, orderBy, limit, query } from "firebase/firestore";
 import type { Prediction } from "../src/types/prediction";
 import PredictionCard from "../src/components/PredictionCard/PredictionCard";
 import CategorySelect from "../src/components/CategorySelect/CategorySelect";
 import Link from "next/link";
+import { usePredictionFeed } from "../src/hooks/usePredictionFeed";
 
 export default function HomePage() {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<string | null>(null);
-  const [predictions, setPredictions] = useState<Prediction[] | null>(null);
   const [verified, setVerified] = useState<boolean | null>(null);
   const [selectedTaxonomy, setSelectedTaxonomy] = useState<{ domain: string; subcategory: string; topic: string } | null>(null);
+  const { items: predictions, loading: feedLoading, error: feedError, hasMore, loadMore, refresh } = usePredictionFeed({
+    pageSize: 10,
+    domain: selectedTaxonomy?.domain ?? null
+  });
 
   useEffect(() => {
     const a = getAuth();
@@ -27,35 +30,8 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const q = query(collection(db, "predictions"), orderBy("createdAt", "desc"), limit(10));
-        const snap = await getDocs(q);
-        const items: Prediction[] = snap.docs.map((d) => {
-          const data = d.data() as any;
-          return {
-            id: d.id,
-            authorId: data.authorId ?? "",
-            summary: data.summary ?? "",
-            metric: data.metric ?? "",
-            referenceValue: data.referenceValue ?? "",
-            timebox: data.timebox ?? new Date().toISOString(),
-            taxonomy: data.taxonomy ?? { domain: "", subcategory: "", topic: "" },
-            status: data.status ?? "pending",
-            aiScore: data.aiScore ?? { plausibility: 5, vaguenessFlag: false, notes: [] },
-            humanVotes: data.humanVotes ?? { outcome: { calledIt: 0, botched: 0, fence: 0 }, quality: { high: 0, low: 0 } },
-            comments: data.comments ?? [],
-            createdAt: (data.createdAt?.toDate?.() ?? new Date()) as Date,
-            resolvedAt: data.resolvedAt ? (data.resolvedAt.toDate?.() ?? undefined) : undefined
-          } as Prediction;
-        });
-        setPredictions(items);
-      } catch {
-        setPredictions([]);
-      }
-    }
-    load();
-  }, []);
+    refresh();
+  }, [selectedTaxonomy, refresh]);
 
   return (
     <main className="mx-auto max-w-3xl p-6 grid gap-6">
@@ -88,10 +64,10 @@ export default function HomePage() {
 
       <section className="grid gap-3">
         <h2 className="font-medium">Recent predictions</h2>
-        {predictions === null && (
+        {feedLoading && predictions.length === 0 && (
           <div className="bg-white rounded-lg shadow-subtle p-4 text-sm text-neutral-500">Loading…</div>
         )}
-        {predictions && predictions.length === 0 && (
+        {!feedLoading && predictions.length === 0 && (
           <div className="bg-white rounded-lg shadow-subtle p-4 grid gap-2">
             <p className="text-sm text-neutral-600">No predictions yet. Here’s a sample:</p>
             <PredictionCard
@@ -112,11 +88,18 @@ export default function HomePage() {
             />
           </div>
         )}
-        {predictions && predictions.length > 0 && (
+        {predictions.length > 0 && (
           <div className="grid gap-3">
             {predictions.map((p) => (
               <PredictionCard key={p.id} prediction={p} />
             ))}
+            <div className="flex items-center justify-center py-2">
+              {hasMore && (
+                <button className="text-sm px-3 py-1 rounded-md border border-neutralBorder hover:bg-neutralBg" onClick={loadMore} disabled={feedLoading}>
+                  {feedLoading ? "Loading…" : "Load more"}
+                </button>
+              )}
+            </div>
           </div>
         )}
       </section>

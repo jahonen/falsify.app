@@ -39,6 +39,8 @@ Owner: Cascade (updates continuously as work progresses)
   - Hosting target configured and deployed (Next.js prerender)
 - IN_PROGRESS
   - Feed MVP (id: feed-mvp)
+    - Completed: predictionService, usePredictionFeed hook, integration on home page, Load more
+    - Remaining: Sidebar components (Nav/DomainList), composite indexes for domain + createdAt
 - PENDING
   - create-modal, func-aiscore, votes-impl, agg-jobs-ui, search-watch-mvp
   - rules-indexes-task, docs-interfaces, tests-init, deploy-analytics, upgrade-prune-iam
@@ -94,10 +96,11 @@ Owner: Cascade (updates continuously as work progresses)
 - Docs/Tests: minimal tests pass; docs present; lifecycle tags applied.
 
 ## 6. Next Actions (short-term)
-1) Implement predictionService + usePredictionFeed + indexes (feed-mvp)
-2) Build Sidebar (Nav/DomainList) and wire filters (feed-mvp)
+1) Build Sidebar (Nav/DomainList) and wire filters (feed-mvp)
+2) Add composite index for predictions: taxonomy.domain asc + createdAt desc (feed-mvp)
 3) NewPredictionModal UI + validation + aiService client (create-modal)
 4) Cloud Function: aiScore (func-aiscore)
 
 ## 7. Changelog
 - v1 (2026-03-01): Initial plan created; current status and next actions recorded.
+- v2 (2026-03-01): Started Feed MVP; added predictionService, usePredictionFeed, and home integration with pagination.
