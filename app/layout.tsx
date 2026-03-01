@@ -3,6 +3,11 @@ import type { ReactNode } from "react";
 import Footer from "../src/components/Footer/Footer";
 import CookieBanner from "../src/components/CookieBanner/CookieBanner";
 import Header from "../src/components/Header/Header";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Falsify.app"
+};
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
