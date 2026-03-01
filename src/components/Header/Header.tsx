@@ -6,6 +6,7 @@ import { getAuth, onAuthStateChanged, signOut, updateProfile } from "firebase/au
 import { doc, getDoc, getFirestore, setDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { storage } from "../../lib/firebase-client";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 function useUser() {
   const [uid, setUid] = useState<string | null>(null);
@@ -55,10 +56,19 @@ export default function Header() {
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const [search, setSearch] = useState(params.get("q") || "");
 
   useEffect(() => {
     setNameInput(displayName ?? "");
   }, [displayName]);
+
+  useEffect(() => {
+    setSearch(params.get("q") || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params?.get("q")]);
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -101,6 +111,23 @@ export default function Header() {
     <header className={styles.header}>
       <div className={styles.inner}>
         <Link href={{ pathname: "/" }} className={styles.brand}>Falsify</Link>
+        <div className={styles.searchWrap}>
+          <form className={styles.searchForm} onSubmit={(e) => {
+            e.preventDefault();
+            const url = new URL(window.location.href);
+            if (search.trim()) url.searchParams.set("q", search.trim()); else url.searchParams.delete("q");
+            const href = `${pathname}${url.search}`;
+            (router.push as (href: string) => void)(href);
+          }}>
+            <input
+              className={styles.searchInput}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search predictions, topics, users…"
+              aria-label="Search"
+            />
+          </form>
+        </div>
         <nav className={styles.nav}>
           <Link href={{ pathname: "/privacy" }} className={styles.link}>Privacy</Link>
           <Link href={{ pathname: "/terms" }} className={styles.link}>Terms</Link>
