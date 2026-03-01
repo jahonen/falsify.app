@@ -4,7 +4,6 @@ import { getAuth, signOut } from "firebase/auth";
 import { db, auth, storage, emulatorMode, loadAnalytics } from "../src/lib/firebase-client";
 import type { Prediction } from "../src/types/prediction";
 import PredictionCard from "../src/components/PredictionCard/PredictionCard";
-import CategorySelect from "../src/components/CategorySelect/CategorySelect";
 import Link from "next/link";
 import { usePredictionFeed } from "../src/hooks/usePredictionFeed";
 import Sidebar from "../src/components/Sidebar/Sidebar";
@@ -33,8 +32,6 @@ export default function HomePage() {
     loadAnalytics();
     return () => unsub();
   }, []);
-
-  // Feed hook already reloads when domain changes; no explicit refresh needed here.
 
   return (
     <main className="mx-auto max-w-6xl p-4 md:p-6 grid gap-4 md:gap-6">
@@ -83,15 +80,7 @@ export default function HomePage() {
               </button>
             </div>
           )}
-          <section className="bg-white rounded-lg shadow-subtle p-4 grid gap-3">
-            <h2 className="font-medium">Category search</h2>
-            <CategorySelect value={selectedTaxonomy} onChange={setSelectedTaxonomy} />
-            {selectedTaxonomy && (
-              <div className="text-sm text-neutral-700">
-                Selected: {selectedTaxonomy.domain} › {selectedTaxonomy.subcategory} › {selectedTaxonomy.topic}
-              </div>
-            )}
-          </section>
+          
 
           <section className="grid gap-3">
             <h2 className="font-medium">Recent predictions</h2>
