@@ -35,3 +35,16 @@ export function daysUntil(input: DateLike): number {
 export function daysBetween(from: DateLike, to: DateLike): number {
   return diffDaysFloor(from, to);
 }
+
+export function formatDaysHuman(days: number): string {
+  const abs = Math.abs(Math.trunc(days));
+  const years = Math.floor(abs / 365);
+  const remDays = abs % 365;
+  if (years > 0) {
+    if (remDays > 0) {
+      return `${years} ${years === 1 ? "year" : "years"} and ${remDays} ${remDays === 1 ? "day" : "days"}`;
+    }
+    return `${years} ${years === 1 ? "year" : "years"}`;
+  }
+  return `${abs} ${abs === 1 ? "day" : "days"}`;
+}

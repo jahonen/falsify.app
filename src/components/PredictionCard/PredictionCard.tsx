@@ -2,7 +2,7 @@ import styles from "./PredictionCard.module.scss";
 import AIBadge from "../AIBadge/AIBadge";
 import TaxonomyChip from "../TaxonomyChip/TaxonomyChip";
 import VoteButton from "../VoteButton/VoteButton";
-import { daysUntil, daysSince } from "../../lib/date-utils";
+import { daysUntil, daysSince, formatDaysHuman } from "../../lib/date-utils";
 import type { Prediction } from "../../types/prediction";
 import { useEffect, useState } from "react";
 import { doc, getDoc, getFirestore } from "firebase/firestore";
@@ -75,7 +75,7 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
 
       <div className="flex items-center justify-between text-sm text-neutral-700">
         <span>Created {dSince}d ago</span>
-        <span>{hasValidUntil ? (dUntil >= 0 ? `Closes in ${dUntil}d` : `Closed ${Math.abs(dUntil)}d ago`) : "Closes date TBA"}</span>
+        <span>{hasValidUntil ? (dUntil >= 0 ? `Closes in ${formatDaysHuman(dUntil)}` : `Closed ${formatDaysHuman(dUntil)} ago`) : "Closes date TBA"}</span>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
