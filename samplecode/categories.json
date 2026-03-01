@@ -1,0 +1,342 @@
+{
+  "categories": [
+    {
+      "name": "Politics & Governance",
+      "subcategories": [
+        {
+          "name": "Elections & Voting",
+          "topics": [
+            "National Elections",
+            "US Elections",
+            "EU Elections",
+            "Referendums",
+            "Other"
+          ]
+        },
+        {
+          "name": "International Relations",
+          "topics": [
+            "Diplomacy & Treaties",
+            "Conflicts & Wars",
+            "Alliances & Blocs (e.g., NATO, UN, BRICS)",
+            "Other"
+          ]
+        },
+        {
+          "name": "Government & Policy",
+          "topics": [
+            "Domestic Policy (e.g., healthcare, education)",
+            "Foreign Policy",
+            "Regulation & Legislation",
+            "Other"
+          ]
+        },
+        {
+          "name": "Security & Defense",
+          "topics": [
+            "Military & Defense",
+            "Cybersecurity",
+            "Terrorism & Crime",
+            "Other"
+          ]
+        },
+        {
+          "name": "Human Rights & Justice",
+          "topics": [
+            "Civil Liberties",
+            "Legal Systems",
+            "Corruption & Transparency",
+            "Other"
+          ]
+        },
+        {
+          "name": "Other",
+          "topics": []
+        }
+      ]
+    },
+    {
+      "name": "Economy & Finance",
+      "subcategories": [
+        {
+          "name": "Macroeconomics",
+          "topics": [
+            "GDP & Economic Growth",
+            "Inflation & Monetary Policy",
+            "Unemployment & Labor Markets",
+            "Other"
+          ]
+        },
+        {
+          "name": "Trade & Commerce",
+          "topics": [
+            "International Trade",
+            "Tariffs & Trade Wars",
+            "Supply Chains",
+            "Other"
+          ]
+        },
+        {
+          "name": "Industry & Business",
+          "topics": [
+            "Manufacturing",
+            "Services & Retail",
+            "Startups & Innovation",
+            "Other"
+          ]
+        },
+        {
+          "name": "Financial Markets",
+          "topics": [
+            "Stock Markets",
+            "Cryptocurrencies & Blockchain",
+            "Banking & Insurance",
+            "Other"
+          ]
+        },
+        {
+          "name": "Public Finance",
+          "topics": [
+            "Government Debt & Deficits",
+            "Taxation",
+            "Subsidies & Stimulus",
+            "Other"
+          ]
+        },
+        {
+          "name": "Other",
+          "topics": []
+        }
+      ]
+    },
+    {
+      "name": "Science & Technology",
+      "subcategories": [
+        {
+          "name": "Artificial Intelligence",
+          "topics": [
+            "AI Research & Development",
+            "AI Regulation & Ethics",
+            "AI Applications (e.g., healthcare, finance)",
+            "Other"
+          ]
+        },
+        {
+          "name": "Biotechnology & Medicine",
+          "topics": [
+            "Medical Research",
+            "Pandemics & Public Health",
+            "Genetic Engineering",
+            "Other"
+          ]
+        },
+        {
+          "name": "Energy & Environment Tech",
+          "topics": [
+            "Renewable Energy",
+            "Fossil Fuels & Nuclear",
+            "Energy Storage & Grids",
+            "Other"
+          ]
+        },
+        {
+          "name": "Space & Aerospace",
+          "topics": [
+            "Space Exploration",
+            "Satellite Technology",
+            "Commercial Spaceflight",
+            "Other"
+          ]
+        },
+        {
+          "name": "Information Technology",
+          "topics": [
+            "Software & Hardware",
+            "Data & Privacy",
+            "Digital Transformation",
+            "Other"
+          ]
+        },
+        {
+          "name": "Other",
+          "topics": []
+        }
+      ]
+    },
+    {
+      "name": "Environment & Sustainability",
+      "subcategories": [
+        {
+          "name": "Climate Change",
+          "topics": [
+            "Mitigation (e.g., emissions reduction)",
+            "Adaptation (e.g., resilience, infrastructure)",
+            "Climate Policy & Agreements",
+            "Other"
+          ]
+        },
+        {
+          "name": "Biodiversity & Ecosystems",
+          "topics": [
+            "Conservation",
+            "Deforestation & Land Use",
+            "Marine & Ocean Health",
+            "Other"
+          ]
+        },
+        {
+          "name": "Pollution & Waste",
+          "topics": [
+            "Air & Water Pollution",
+            "Plastic & Waste Management",
+            "Circular Economy",
+            "Other"
+          ]
+        },
+        {
+          "name": "Natural Resources",
+          "topics": [
+            "Water & Marine Resources",
+            "Minerals & Mining",
+            "Agriculture & Food Systems",
+            "Other"
+          ]
+        },
+        {
+          "name": "Other",
+          "topics": []
+        }
+      ]
+    },
+    {
+      "name": "Society & Culture",
+      "subcategories": [
+        {
+          "name": "Demography & Migration",
+          "topics": [
+            "Population Growth & Aging",
+            "Immigration & Refugees",
+            "Urbanization",
+            "Other"
+          ]
+        },
+        {
+          "name": "Education & Research",
+          "topics": [
+            "Primary & Secondary Education",
+            "Higher Education",
+            "Scientific Research",
+            "Other"
+          ]
+        },
+        {
+          "name": "Arts & Media",
+          "topics": [
+            "Visual & Performing Arts",
+            "Film, TV, & Streaming",
+            "Social Media & Digital Culture",
+            "Other"
+          ]
+        },
+        {
+          "name": "Lifestyle & Consumer Trends",
+          "topics": [
+            "Fashion & Design",
+            "Food & Beverage",
+            "Travel & Tourism",
+            "Other"
+          ]
+        },
+        {
+          "name": "Social Issues",
+          "topics": [
+            "Inequality & Poverty",
+            "Gender & LGBTQ+ Rights",
+            "Racial & Ethnic Issues",
+            "Other"
+          ]
+        },
+        {
+          "name": "Other",
+          "topics": []
+        }
+      ]
+    },
+    {
+      "name": "Health & Medicine",
+      "subcategories": [
+        {
+          "name": "Public Health",
+          "topics": [
+            "Epidemics & Pandemics",
+            "Healthcare Systems",
+            "Vaccines & Immunization",
+            "Other"
+          ]
+        },
+        {
+          "name": "Medical Research",
+          "topics": [
+            "Drug Development",
+            "Medical Devices & Diagnostics",
+            "Genomics & Personalized Medicine",
+            "Other"
+          ]
+        },
+        {
+          "name": "Mental Health",
+          "topics": [
+            "Mental Health Policy",
+            "Therapy & Treatment",
+            "Wellbeing & Lifestyle",
+            "Other"
+          ]
+        },
+        {
+          "name": "Other",
+          "topics": []
+        }
+      ]
+    },
+    {
+      "name": "Space",
+      "subcategories": [
+        {
+          "name": "Space Exploration",
+          "topics": [
+            "Manned Missions",
+            "Unmanned Missions (e.g., probes, rovers)",
+            "Space Tourism",
+            "Other"
+          ]
+        },
+        {
+          "name": "Space Technology",
+          "topics": [
+            "Satellites & Communication",
+            "Space Debris & Sustainability",
+            "Military & Defense in Space",
+            "Other"
+          ]
+        },
+        {
+          "name": "Other",
+          "topics": []
+        }
+      ]
+    },
+    {
+      "name": "Other",
+      "subcategories": [
+        {
+          "name": "Miscellaneous",
+          "topics": [
+            "Uncategorized Predictions",
+            "Emerging Topics",
+            "Other"
+          ]
+        }
+      ]
+    }
+  ]
+}

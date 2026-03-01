@@ -1,0 +1,22 @@
+.vote-button {
+  @apply inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-white transition-transform duration-200 ease-in-out;
+}
+.vote-button:disabled {
+  @apply opacity-60 cursor-not-allowed;
+}
+.vote-button:hover:not(:disabled) {
+  transform: scale(1.02);
+}
+.vote-button.calledIt {
+  background: #7ED321;
+}
+.vote-button.botched {
+  background: #F44336;
+}
+.vote-button.fence {
+  background: #FFB74D;
+  color: #333333;
+}
+.vote-button .label {
+  @apply leading-none;
+}
