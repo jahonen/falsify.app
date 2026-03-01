@@ -12,6 +12,7 @@ export function usePredictionFeed(params: UsePredictionFeedParams = {}) {
   const [cursor, setCursor] = useState<FeedResult["nextCursor"]>(null);
   const [hasMore, setHasMore] = useState(true);
   const mounted = useRef(true);
+  const loadingRef = useRef(false);
 
   const baseParams = useMemo<FeedParams>(() => ({
     pageSize,
@@ -20,7 +21,8 @@ export function usePredictionFeed(params: UsePredictionFeedParams = {}) {
   }), [pageSize, params.domain, params.status]);
 
   const load = useCallback(async (reset: boolean) => {
-    if (loading) return;
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -33,15 +35,16 @@ export function usePredictionFeed(params: UsePredictionFeedParams = {}) {
       if (!mounted.current) return;
       setError(e?.message || "Failed to load feed");
     } finally {
+      loadingRef.current = false;
       if (mounted.current) setLoading(false);
     }
-  }, [baseParams, cursor, loading]);
+  }, [baseParams, cursor]);
 
   useEffect(() => {
     mounted.current = true;
     load(true);
     return () => { mounted.current = false; };
-  }, [baseParams, load]);
+  }, [baseParams]);
 
   const loadMore = useCallback(() => load(false), [load]);
   const refresh = useCallback(() => load(true), [load]);

@@ -8,6 +8,7 @@ import CategorySelect from "../src/components/CategorySelect/CategorySelect";
 import Link from "next/link";
 import { usePredictionFeed } from "../src/hooks/usePredictionFeed";
 import Sidebar from "../src/components/Sidebar/Sidebar";
+import NewPredictionModal from "../src/components/NewPredictionModal/NewPredictionModal";
 
 export default function HomePage() {
   const [ready, setReady] = useState(false);
@@ -20,6 +21,7 @@ export default function HomePage() {
   });
   const [activeNav, setActiveNav] = useState<"feed" | "mine" | "voted" | "watchlist">("feed");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     const a = getAuth();
@@ -32,9 +34,7 @@ export default function HomePage() {
     return () => unsub();
   }, []);
 
-  useEffect(() => {
-    refresh();
-  }, [selectedTaxonomy, refresh]);
+  // Feed hook already reloads when domain changes; no explicit refresh needed here.
 
   return (
     <main className="mx-auto max-w-6xl p-4 md:p-6 grid gap-4 md:gap-6">
@@ -76,6 +76,13 @@ export default function HomePage() {
         </div>
 
         <div className="md:col-span-8 lg:col-span-9 grid gap-3">
+          {user && verified && (
+            <div className="flex items-center justify-end">
+              <button className="text-sm px-3 py-2 rounded-md border border-neutralBorder hover:bg-neutralBg" onClick={() => setCreateOpen(true)}>
+                New Prediction
+              </button>
+            </div>
+          )}
           <section className="bg-white rounded-lg shadow-subtle p-4 grid gap-3">
             <h2 className="font-medium">Category search</h2>
             <CategorySelect value={selectedTaxonomy} onChange={setSelectedTaxonomy} />
@@ -88,6 +95,11 @@ export default function HomePage() {
 
           <section className="grid gap-3">
             <h2 className="font-medium">Recent predictions</h2>
+            {feedError && (
+              <div className="bg-[#FFF3F2] border border-[#F0C1BD] text-[#7A2E2A] rounded-lg p-3 text-sm">
+                {feedError}
+              </div>
+            )}
             {feedLoading && predictions.length === 0 && (
               <div className="bg-white rounded-lg shadow-subtle p-4 text-sm text-neutral-500">Loading…</div>
             )}
@@ -129,6 +141,14 @@ export default function HomePage() {
           </section>
         </div>
       </div>
+
+      {createOpen && user && (
+        <NewPredictionModal
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => { setCreateOpen(false); refresh(); }}
+          initialTaxonomy={selectedTaxonomy ?? undefined}
+        />
+      )}
     </main>
   );
 }
