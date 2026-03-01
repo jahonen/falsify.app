@@ -19,6 +19,7 @@ function statusColor(status: Prediction["status"]): string {
 
 export default function PredictionCard({ prediction }: PredictionCardProps) {
   const dUntil = daysUntil(prediction.timebox);
+  const hasValidUntil = Number.isFinite(dUntil);
   const dSince = daysSince(prediction.createdAt);
   const statusCls = statusColor(prediction.status);
   const [authorName, setAuthorName] = useState<string | null>(null);
@@ -74,7 +75,7 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
 
       <div className="flex items-center justify-between text-sm text-neutral-700">
         <span>Created {dSince}d ago</span>
-        <span>{dUntil >= 0 ? `Closes in ${dUntil}d` : `Closed ${Math.abs(dUntil)}d ago`}</span>
+        <span>{hasValidUntil ? (dUntil >= 0 ? `Closes in ${dUntil}d` : `Closed ${Math.abs(dUntil)}d ago`) : "Closes date TBA"}</span>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
