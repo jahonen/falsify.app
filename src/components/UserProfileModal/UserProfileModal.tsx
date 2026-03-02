@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { getUserProfile, type UserProfile } from "../../services/profile-service";
-import { createOrGetThread, listMessages, sendMessage, type DMMessage } from "../../services/dm-service";
+import { createOrGetThread, sendMessage, type DMMessage } from "../../services/dm-service";
 import { getAuth } from "firebase/auth";
 import { collection, getFirestore, onSnapshot, orderBy, query } from "firebase/firestore";
+import { toast } from "react-hot-toast";
 
 export default function UserProfileModal({ uid, open, onClose }: { uid: string; open: boolean; onClose: () => void }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -73,8 +74,10 @@ export default function UserProfileModal({ uid, open, onClose }: { uid: string; 
     try {
       await sendMessage(threadId, text);
       setMsgText("");
+      toast.success("Message sent");
     } catch (e: any) {
       setError(e.message || String(e));
+      toast.error(e.message || "Failed to send message");
     } finally {
       setSending(false);
     }

@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { castVote } from "../../services/vote-service";
 import { doc, getDoc, getFirestore } from "firebase/firestore";
 import RelativeDaysText from "../RelativeDaysText/RelativeDaysText";
+import UserProfileModal from "../UserProfileModal/UserProfileModal";
+import { toast } from "react-hot-toast";
 
 export interface PredictionCardProps {
   prediction: Prediction;
@@ -28,6 +30,7 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
     fence: prediction.humanVotes?.outcome?.fence ?? 0,
   });
   const [voting, setVoting] = useState<null | "calledIt" | "botched" | "fence">(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -67,7 +70,7 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
           {prediction.rationale ? (
             <p className="text-sm text-neutral-600">{prediction.rationale}</p>
           ) : null}
-          <div className="flex items-center gap-2 mt-1">
+          <button type="button" className="flex items-center gap-2 mt-1 group" onClick={() => setProfileOpen(true)}>
             {authorPhoto ? (
               <img src={authorPhoto} alt={authorName ?? ""} className="w-6 h-6 rounded-full object-cover" />
             ) : (
@@ -75,8 +78,8 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
                 {(authorName?.trim()?.[0] ?? "?").toUpperCase()}
               </div>
             )}
-            <span className="text-sm text-neutral-700">{authorName || "Unknown"}</span>
-          </div>
+            <span className="text-sm text-neutral-700 group-hover:underline">{authorName || "Unknown"}</span>
+          </button>
         </div>
         <div className="flex items-center gap-2">
           <AIBadge score={prediction.aiScore?.plausibility ?? 5} />
@@ -111,9 +114,10 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
               setVoting("calledIt");
               setVoteCounts((c) => ({ ...c, calledIt: c.calledIt + 1 }));
               await castVote(prediction.id, "calledIt");
+              toast.success("Vote recorded: Called It");
             } catch (e) {
               setVoteCounts((c) => ({ ...c, calledIt: Math.max(0, c.calledIt - 1) }));
-              // swallow for MVP; could surface a toast
+              toast.error("Failed to record vote");
             } finally {
               setVoting(null);
             }
@@ -128,8 +132,10 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
               setVoting("botched");
               setVoteCounts((c) => ({ ...c, botched: c.botched + 1 }));
               await castVote(prediction.id, "botched");
+              toast.success("Vote recorded: Botched");
             } catch (e) {
               setVoteCounts((c) => ({ ...c, botched: Math.max(0, c.botched - 1) }));
+              toast.error("Failed to record vote");
             } finally {
               setVoting(null);
             }
@@ -144,14 +150,19 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
               setVoting("fence");
               setVoteCounts((c) => ({ ...c, fence: c.fence + 1 }));
               await castVote(prediction.id, "fence");
+              toast.success("Vote recorded: Fence");
             } catch (e) {
               setVoteCounts((c) => ({ ...c, fence: Math.max(0, c.fence - 1) }));
+              toast.error("Failed to record vote");
             } finally {
               setVoting(null);
             }
           }}
         />
       </div>
+      {profileOpen && (
+        <UserProfileModal uid={prediction.authorId} open={profileOpen} onClose={() => setProfileOpen(false)} />
+      )}
     </article>
   );
 }

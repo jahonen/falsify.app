@@ -4,6 +4,7 @@ import { getUserProfile, UserProfile } from "../../services/profile-service";
 import EditProfileModal from "../EditProfileModal/EditProfileModal";
 import { getAuth } from "firebase/auth";
 import { listUserPredictions, listUserVotes, listUserComments, type UserPredictionActivity, type UserVoteActivity, type UserCommentActivity } from "../../services/activity-service";
+import UserProfileModal from "../UserProfileModal/UserProfileModal";
 
 export default function ProfilePage({ uid }: { uid: string }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -14,6 +15,7 @@ export default function ProfilePage({ uid }: { uid: string }) {
   const [preds, setPreds] = useState<UserPredictionActivity[]>([]);
   const [votes, setVotes] = useState<UserVoteActivity[]>([]);
   const [comments, setComments] = useState<UserCommentActivity[]>([]);
+  const [userModalOpen, setUserModalOpen] = useState(false);
 
   useEffect(() => {
     const auth = getAuth();
@@ -52,9 +54,13 @@ export default function ProfilePage({ uid }: { uid: string }) {
               <h1 className="text-xl font-semibold">{profile.displayName || "Anonymous"}</h1>
               {profile.bio && <p className="text-sm text-neutral-600">{profile.bio}</p>}
             </div>
-            {self === uid && (
+            {self === uid ? (
               <div className="ml-auto">
                 <button className="text-sm px-3 py-1 rounded-md border" onClick={() => setEditOpen(true)}>Edit profile</button>
+              </div>
+            ) : (
+              <div className="ml-auto">
+                <button className="text-sm px-3 py-1 rounded-md border" onClick={() => setUserModalOpen(true)}>Message</button>
               </div>
             )}
           </div>
@@ -94,6 +100,7 @@ export default function ProfilePage({ uid }: { uid: string }) {
         {/* Comments activity omitted for now: current schema stores comments as an array on prediction docs without author metadata */}
       </section>
       {editOpen && <EditProfileModal onClose={() => setEditOpen(false)} onSaved={() => getUserProfile(uid).then(setProfile)} />}
+      {userModalOpen && <UserProfileModal uid={uid} open={userModalOpen} onClose={() => setUserModalOpen(false)} />}
     </main>
   );
 }

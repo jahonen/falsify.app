@@ -3,6 +3,7 @@ import type { Prediction } from "../../types/prediction";
 import RelativeDaysText from "../RelativeDaysText/RelativeDaysText";
 import { useMemo, useState } from "react";
 import { addComment } from "../../services/discussion-service";
+import { toast } from "react-hot-toast";
 
 export default function PredictionModal({ prediction, onClose }: { prediction: Prediction; onClose: () => void }) {
   const calledIt = prediction.humanVotes?.outcome?.calledIt ?? 0;
@@ -115,9 +116,11 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
                           setComments((prev) => [...prev, text]);
                           setCommentText("");
                           await addComment(prediction.id, text);
+                          toast.success("Comment posted");
                         } catch (err) {
                           // rollback on error
                           setComments((prev) => prev.filter((v, idx) => !(idx === prev.length - 1 && v === text)));
+                          toast.error("Failed to post comment");
                         } finally {
                           setPosting(false);
                         }

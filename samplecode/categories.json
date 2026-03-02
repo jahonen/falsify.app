@@ -82,6 +82,7 @@
             "Manufacturing",
             "Services & Retail",
             "Startups & Innovation",
+            "Business Results",
             "Other"
           ]
         },
@@ -91,6 +92,8 @@
             "Stock Markets",
             "Cryptocurrencies & Blockchain",
             "Banking & Insurance",
+            "IPOs",
+            "Earnings Reports",
             "Other"
           ]
         },
@@ -118,6 +121,7 @@
             "AI Research & Development",
             "AI Regulation & Ethics",
             "AI Applications (e.g., healthcare, finance)",
+            "Self-Driving Cars",
             "Other"
           ]
         },
@@ -136,15 +140,14 @@
             "Renewable Energy",
             "Fossil Fuels & Nuclear",
             "Energy Storage & Grids",
+            "Battery Technology",
             "Other"
           ]
         },
         {
-          "name": "Space & Aerospace",
+          "name": "Aerospace",
           "topics": [
-            "Space Exploration",
-            "Satellite Technology",
-            "Commercial Spaceflight",
+            "Drones",
             "Other"
           ]
         },

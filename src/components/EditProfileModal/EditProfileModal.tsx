@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { upsertOwnProfile, getUserProfile, UserProfile } from "../../services/profile-service";
 import AvatarUploader from "../AvatarUploader/AvatarUploader";
 import { getAuth } from "firebase/auth";
+import { toast } from "react-hot-toast";
 
 export default function EditProfileModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [profile, setProfile] = useState<UserProfile>({});
@@ -20,10 +21,12 @@ export default function EditProfileModal({ onClose, onSaved }: { onClose: () => 
     setSaving(true);
     try {
       await upsertOwnProfile(profile);
+      toast.success("Profile saved");
       onSaved();
       onClose();
     } catch (e: any) {
       setError(e.message || String(e));
+      toast.error(e.message || "Failed to save profile");
     } finally {
       setSaving(false);
     }

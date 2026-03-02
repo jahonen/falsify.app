@@ -104,6 +104,11 @@
 - dependencies
   - Firebase Auth, Firestore
 
+## Third-party dependencies
+- react-hot-toast
+  - version: 2.4.1 (locked)
+  - usage: client-side toasts for user feedback (votes, comments, DMs, profile saves)
+
 
 ## activity-service (Client Service)
 - tag: alpha
