@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getAuth, signOut } from "firebase/auth";
 import { db, auth, storage, emulatorMode, loadAnalytics } from "../src/lib/firebase-client";
 import type { Prediction } from "../src/types/prediction";
@@ -8,6 +8,9 @@ import Link from "next/link";
 import { usePredictionFeed } from "../src/hooks/usePredictionFeed";
 import Sidebar from "../src/components/Sidebar/Sidebar";
 import NewPredictionModal from "../src/components/NewPredictionModal/NewPredictionModal";
+import PredictionModal from "../src/components/PredictionModal/PredictionModal";
+import { useSearchParams } from "next/navigation";
+import { tokenizeQuery, matchesPrediction } from "../src/lib/search";
 
 export default function HomePage() {
   const [ready, setReady] = useState(false);
@@ -18,9 +21,14 @@ export default function HomePage() {
     pageSize: 10,
     domain: selectedTaxonomy?.domain ?? null
   });
+  const params = useSearchParams();
+  const q = params.get("q") || "";
+  const tokens = useMemo(() => tokenizeQuery(q), [q]);
+  const filteredPredictions = useMemo(() => predictions.filter((p) => matchesPrediction(p as Prediction, tokens)), [predictions, tokens]);
   const [activeNav, setActiveNav] = useState<"feed" | "mine" | "voted" | "watchlist">("feed");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [openPrediction, setOpenPrediction] = useState<Prediction | null>(null);
 
   useEffect(() => {
     const a = getAuth();
@@ -92,9 +100,9 @@ export default function HomePage() {
             {feedLoading && predictions.length === 0 && (
               <div className="bg-white rounded-lg shadow-subtle p-4 text-sm text-neutral-500">Loading…</div>
             )}
-            {!feedLoading && predictions.length === 0 && (
+            {!feedLoading && filteredPredictions.length === 0 && (
               <div className="bg-white rounded-lg shadow-subtle p-4 grid gap-2">
-                <p className="text-sm text-neutral-600">No predictions yet. Here’s a sample:</p>
+                <p className="text-sm text-neutral-600">No predictions yet{q ? ` for "${q}"` : ""}. Here’s a sample:</p>
                 <PredictionCard
                   prediction={{
                     id: "sample-1",
@@ -113,10 +121,12 @@ export default function HomePage() {
                 />
               </div>
             )}
-            {predictions.length > 0 && (
+            {filteredPredictions.length > 0 && (
               <div className="grid gap-3">
-                {predictions.map((p) => (
-                  <PredictionCard key={p.id} prediction={p} />
+                {filteredPredictions.map((p) => (
+                  <div key={p.id} onClick={() => setOpenPrediction(p as Prediction)} role="button" className="cursor-pointer">
+                    <PredictionCard prediction={p} />
+                  </div>
                 ))}
                 <div className="flex items-center justify-center py-2">
                   {hasMore && (
@@ -137,6 +147,9 @@ export default function HomePage() {
           onCreated={() => { setCreateOpen(false); refresh(); }}
           initialTaxonomy={selectedTaxonomy ?? undefined}
         />
+      )}
+      {openPrediction && (
+        <PredictionModal prediction={openPrediction} onClose={() => setOpenPrediction(null)} />
       )}
     </main>
   );
