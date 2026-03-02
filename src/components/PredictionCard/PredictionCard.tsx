@@ -4,6 +4,7 @@ import TaxonomyChip from "../TaxonomyChip/TaxonomyChip";
 import VoteButton from "../VoteButton/VoteButton";
 import type { Prediction } from "../../types/prediction";
 import { useEffect, useState } from "react";
+import { castVote } from "../../services/vote-service";
 import { doc, getDoc, getFirestore } from "firebase/firestore";
 import RelativeDaysText from "../RelativeDaysText/RelativeDaysText";
 
@@ -21,6 +22,12 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
   const statusCls = statusColor(prediction.status);
   const [authorName, setAuthorName] = useState<string | null>(null);
   const [authorPhoto, setAuthorPhoto] = useState<string | null>(null);
+  const [voteCounts, setVoteCounts] = useState({
+    calledIt: prediction.humanVotes?.outcome?.calledIt ?? 0,
+    botched: prediction.humanVotes?.outcome?.botched ?? 0,
+    fence: prediction.humanVotes?.outcome?.fence ?? 0,
+  });
+  const [voting, setVoting] = useState<null | "calledIt" | "botched" | "fence">(null);
 
   useEffect(() => {
     let active = true;
@@ -95,9 +102,55 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <VoteButton variant="calledIt" label={`Called It (${prediction.humanVotes?.outcome?.calledIt ?? 0})`} />
-        <VoteButton variant="botched" label={`Botched (${prediction.humanVotes?.outcome?.botched ?? 0})`} />
-        <VoteButton variant="fence" label={`Fence (${prediction.humanVotes?.outcome?.fence ?? 0})`} />
+        <VoteButton
+          variant="calledIt"
+          label={`Called It (${voteCounts.calledIt})`}
+          disabled={!!voting}
+          onClick={async () => {
+            try {
+              setVoting("calledIt");
+              setVoteCounts((c) => ({ ...c, calledIt: c.calledIt + 1 }));
+              await castVote(prediction.id, "calledIt");
+            } catch (e) {
+              setVoteCounts((c) => ({ ...c, calledIt: Math.max(0, c.calledIt - 1) }));
+              // swallow for MVP; could surface a toast
+            } finally {
+              setVoting(null);
+            }
+          }}
+        />
+        <VoteButton
+          variant="botched"
+          label={`Botched (${voteCounts.botched})`}
+          disabled={!!voting}
+          onClick={async () => {
+            try {
+              setVoting("botched");
+              setVoteCounts((c) => ({ ...c, botched: c.botched + 1 }));
+              await castVote(prediction.id, "botched");
+            } catch (e) {
+              setVoteCounts((c) => ({ ...c, botched: Math.max(0, c.botched - 1) }));
+            } finally {
+              setVoting(null);
+            }
+          }}
+        />
+        <VoteButton
+          variant="fence"
+          label={`Fence (${voteCounts.fence})`}
+          disabled={!!voting}
+          onClick={async () => {
+            try {
+              setVoting("fence");
+              setVoteCounts((c) => ({ ...c, fence: c.fence + 1 }));
+              await castVote(prediction.id, "fence");
+            } catch (e) {
+              setVoteCounts((c) => ({ ...c, fence: Math.max(0, c.fence - 1) }));
+            } finally {
+              setVoting(null);
+            }
+          }}
+        />
       </div>
     </article>
   );

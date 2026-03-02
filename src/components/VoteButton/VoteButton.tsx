@@ -1,5 +1,6 @@
 import "./VoteButton.scss";
 import { trackEvent } from "../../lib/analytics";
+import type React from "react";
 
 export type VoteVariant = "calledIt" | "botched" | "fence";
 
@@ -11,7 +12,8 @@ export interface VoteButtonProps {
 }
 
 export default function VoteButton({ variant, label, onClick, disabled }: VoteButtonProps) {
-  function handleClick() {
+  function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
+    e.stopPropagation();
     trackEvent("vote_click", { variant });
     if (onClick) onClick();
   }

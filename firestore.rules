@@ -1,6 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function onlyAllowedChanges(allowed) {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(allowed);
+    }
     match /users/{userId} {
       allow read: if true;
       allow create: if request.auth != null && request.auth.uid == userId;
@@ -10,13 +13,19 @@ service cloud.firestore {
     match /predictions/{predictionId} {
       allow read: if true;
       allow create: if request.auth != null && request.auth.token.email_verified == true;
-      allow update, delete: if request.auth != null && request.resource.data.authorId == request.auth.uid && request.auth.token.email_verified == true;
+      allow update, delete: if request.auth != null && request.resource.data.authorId == request.auth.uid && request.auth.token.email_verified == true
+        || (
+          request.auth != null && request.auth.token.email_verified == true && (
+            onlyAllowedChanges(["humanVotes", "updatedAt"]) ||
+            onlyAllowedChanges(["comments", "updatedAt"]) ||
+            onlyAllowedChanges(["humanVotes", "comments", "updatedAt"]) 
+          )
+        );
     }
 
-    match /votes/{voteId} {
+    match /predictions/{predictionId}/votes/{userId} {
       allow read: if true;
-      allow create: if request.auth != null;
-      allow update, delete: if false;
+      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
     match /comments/{commentId} {
