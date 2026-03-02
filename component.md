@@ -27,16 +27,62 @@
 
 ## PredictionCard
 - tag: beta
-- description: Displays a prediction with multi-metrics, rationale, and AI analysis chips.
+- description: Displays a prediction with multi-metrics, rationale, AI analysis chips, and VoteButtons. Clicking opens expanded modal.
 
 - interfaces
   - inputs
     - prediction: Prediction (includes optional `metrics`, `rationale`, `aiAnalysis`)
   - outputs
-    - none (presentational)
+    - onOpen: () => void
   - side_effects
-    - none
+    - Calls `vote-service.castVote` on VoteButtons interaction
 
 - observability
   - analytics: may emit view/interact events (clicks, expands)
+
+
+## PredictionModal
+- tag: beta
+- description: Expanded view of a prediction in a modal opened from the feed card. Presents full metrics, rationale, AI analysis, timeline, verdict bar, and a basic discussion section with add comment.
+
+- interfaces
+  - inputs
+    - prediction: Prediction (includes optional `metrics`, `rationale`, `aiAnalysis`, `humanVotes`, `comments`)
+    - onClose: () => void
+  - outputs
+    - onCommentAdded?: (commentId) => void
+  - side_effects
+    - Calls `discussion-service.addComment` to append a new comment
+
+- observability
+  - analytics: optional events on open/close and discussion expand
+
+
+## Header
+- tag: stable
+- description: Top navigation with search input synced to URL `?q`.
+
+- interfaces
+  - inputs
+    - initialQuery?: string (from current URL)
+  - outputs
+    - onSearchChange: pushes/replaces router with updated `?q`
+  - side_effects
+    - Updates URL search params; emits analytics on search_submit
+
+- observability
+  - analytics: emits search_input and search_submit events
+
+
+## AboutPage
+- tag: stable
+- description: Static About page linked in footer with mission and dedication.
+
+- interfaces
+  - inputs
+    - none
+  - outputs
+    - none
+  - side_effects
+    - none
 
