@@ -2,10 +2,10 @@ import styles from "./PredictionCard.module.scss";
 import AIBadge from "../AIBadge/AIBadge";
 import TaxonomyChip from "../TaxonomyChip/TaxonomyChip";
 import VoteButton from "../VoteButton/VoteButton";
-import { daysUntil, daysSince, formatDaysHuman } from "../../lib/date-utils";
 import type { Prediction } from "../../types/prediction";
 import { useEffect, useState } from "react";
 import { doc, getDoc, getFirestore } from "firebase/firestore";
+import RelativeDaysText from "../RelativeDaysText/RelativeDaysText";
 
 export interface PredictionCardProps {
   prediction: Prediction;
@@ -18,9 +18,6 @@ function statusColor(status: Prediction["status"]): string {
 }
 
 export default function PredictionCard({ prediction }: PredictionCardProps) {
-  const dUntil = daysUntil(prediction.timebox);
-  const hasValidUntil = Number.isFinite(dUntil);
-  const dSince = daysSince(prediction.createdAt);
   const statusCls = statusColor(prediction.status);
   const [authorName, setAuthorName] = useState<string | null>(null);
   const [authorPhoto, setAuthorPhoto] = useState<string | null>(null);
@@ -49,7 +46,20 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
       <header className="flex items-start justify-between gap-3">
         <div className="grid gap-1">
           <h3 className="text-base font-semibold">{prediction.summary}</h3>
-          <p className="text-sm text-neutral-600">{prediction.metric} • Ref: {prediction.referenceValue}</p>
+          {Array.isArray(prediction.metrics) && prediction.metrics.length > 0 ? (
+            <p className="text-sm text-neutral-600">
+              {prediction.metrics.map((m, i) => (
+                <span key={i}>
+                  {m.metric} {m.operator} {m.target}{i < prediction.metrics!.length - 1 ? " • " : ""}
+                </span>
+              ))}
+            </p>
+          ) : (
+            <p className="text-sm text-neutral-600">{prediction.metric} • Ref: {prediction.referenceValue}</p>
+          )}
+          {prediction.rationale ? (
+            <p className="text-sm text-neutral-600">{prediction.rationale}</p>
+          ) : null}
           <div className="flex items-center gap-2 mt-1">
             {authorPhoto ? (
               <img src={authorPhoto} alt={authorName ?? ""} className="w-6 h-6 rounded-full object-cover" />
@@ -63,6 +73,12 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
         </div>
         <div className="flex items-center gap-2">
           <AIBadge score={prediction.aiScore?.plausibility ?? 5} />
+          {prediction.aiAnalysis ? (
+            <div className="flex items-center gap-1 text-xs text-neutral-700">
+              <span className="px-1.5 py-0.5 rounded bg-neutral-100 border border-neutral-200">B {prediction.aiAnalysis.boldness}</span>
+              <span className="px-1.5 py-0.5 rounded bg-neutral-100 border border-neutral-200">R {prediction.aiAnalysis.relevance}</span>
+            </div>
+          ) : null}
           <span className={`px-2 py-1 rounded-full text-xs text-white ${statusCls}`}>{prediction.status}</span>
         </div>
       </header>
@@ -74,8 +90,8 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
       </div>
 
       <div className="flex items-center justify-between text-sm text-neutral-700">
-        <span>Created {dSince}d ago</span>
-        <span>{hasValidUntil ? (dUntil >= 0 ? `Closes in ${formatDaysHuman(dUntil)}` : `Closed ${formatDaysHuman(dUntil)} ago`) : "Closes date TBA"}</span>
+        <RelativeDaysText date={prediction.createdAt} variant="since" label="Created" />
+        <RelativeDaysText date={prediction.timebox} variant="deadline" label="Closes" pastLabel="Closed" fallback="Closes date TBA" />
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">

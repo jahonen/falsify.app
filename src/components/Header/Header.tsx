@@ -110,7 +110,10 @@ export default function Header() {
   return (
     <header className={styles.header}>
       <div className={styles.inner}>
-        <Link href={{ pathname: "/" }} className={styles.brand}>Falsify</Link>
+        <Link href={{ pathname: "/" }} className={styles.brand}>
+          <img src="/android-chrome-192x192.png" className={styles.brandIcon} alt="Falsify icon" />
+          Falsify
+        </Link>
         <div className={styles.searchWrap}>
           <form className={styles.searchForm} onSubmit={(e) => {
             e.preventDefault();

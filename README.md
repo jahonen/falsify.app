@@ -5,6 +5,13 @@ Falsify is a web app for making and reviewing falsifiable predictions. It includ
 - Live Hosting: https://falsify-app.web.app
 - Functions (example): `sendEmail` (Gen2) [requires Firebase ID token]
 
+## Current epic: Prediction Modal + AI Analysis
+- NewPredictionModal: supports 1–3 metrics, `rationale`, and a two-step flow.
+  - Propose → runs `aiAnalyze` (Cloud Function) to score Boldness/Relevance (1–100).
+  - Submit → enabled only after a successful Propose for the current inputs.
+  - Modal cannot be closed by overlay/Escape; only by the X button.
+- PredictionCard: shows all metrics, rationale, and Boldness/Relevance chips.
+
 ## Tech stack
 - Next.js 14 + React 18
 - Firebase: Auth, Firestore, Storage, Hosting, Emulator Suite
@@ -43,6 +50,8 @@ firebase deploy --only hosting
 ```
 - Functions (predeploy builds TypeScript automatically)
 ```
+firebase deploy --only functions:aiAnalyze
+firebase deploy --only functions:aiScore
 firebase deploy --only functions:sendEmail
 ```
 
@@ -50,6 +59,7 @@ firebase deploy --only functions:sendEmail
 - Secret Manager (project: falsify-app)
   - `SENDGRID_API_KEY`
   - `GEMINI_MODEL_NAME`, `GEMINI_REGION`
+  - `BOLDNESS_RATING_GUIDE`, `RELEVANCE_RATING_GUIDE` (JSON rubrics consumed by `aiAnalyze`)
 - IAM is configured so Functions runtime and Cloud Build can access required services.
 
 ## Security rules (summary)
@@ -62,6 +72,12 @@ firebase deploy --only functions:sendEmail
 
 ## Implementation plan
 See [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) for milestones (epics), tasks, stories, and live status.
+
+## Verifying AI analysis (Propose/Submit)
+1. Open New Prediction modal and fill summary, 1–3 metrics, timebox, and optional rationale.
+2. Click Propose. Expect Boldness/Relevance (1–100) and optional notes to appear.
+3. Change any input (including timebox) → Propose is required again; Submit is gated until Propose succeeds.
+4. Cards render metrics, rationale, and B/R chips after publishing.
 
 ## License
 MIT — see [LICENSE](./LICENSE).

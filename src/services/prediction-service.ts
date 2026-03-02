@@ -1,5 +1,7 @@
 import { collection, getDocs, getFirestore, limit as fsLimit, orderBy, query, startAfter, where, DocumentData, QueryConstraint, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
-import type { Prediction } from "../types/prediction";
+import type { Prediction, Metric } from "../types/prediction";
+import type { AIScore } from "../types/prediction";
+import type { AIAnalysis } from "../types/prediction";
 
 export type FeedParams = {
   pageSize?: number;
@@ -35,10 +37,13 @@ export async function listPredictions(params: FeedParams = {}): Promise<FeedResu
       summary: data.summary ?? "",
       metric: data.metric ?? "",
       referenceValue: data.referenceValue ?? "",
+      metrics: (Array.isArray(data.metrics) ? data.metrics : undefined) as Metric[] | undefined,
+      rationale: data.rationale ?? "",
       timebox: (data.timebox?.toDate?.()?.toISOString?.() ?? data.timebox ?? new Date().toISOString()) as string,
       taxonomy: data.taxonomy ?? { domain: "", subcategory: "", topic: "" },
       status: data.status ?? "pending",
       aiScore: data.aiScore ?? { plausibility: 5, vaguenessFlag: false, notes: [] },
+      aiAnalysis: data.aiAnalysis ?? undefined,
       humanVotes: data.humanVotes ?? { outcome: { calledIt: 0, botched: 0, fence: 0 }, quality: { high: 0, low: 0 } },
       comments: data.comments ?? [],
       createdAt: (data.createdAt?.toDate?.() ?? new Date()) as Date,
@@ -58,12 +63,22 @@ export type CreatePredictionInput = {
   referenceValue?: string;
   timeboxISO: string;
   taxonomy: { domain: string; subcategory: string; topic: string };
+  aiScore?: AIScore;
+  metrics?: Metric[];
+  rationale?: string;
+  aiAnalysis?: AIAnalysis;
 };
 
 export async function createPrediction(input: CreatePredictionInput): Promise<string> {
   const db = getFirestore();
-  if (!input.summary || !input.metric || !input.operator || !input.target || !input.timeboxISO || !input.taxonomy?.domain) {
+  const hasMulti = Array.isArray(input.metrics) && input.metrics.length >= 1;
+  if (!input.summary || !input.timeboxISO || !input.taxonomy?.domain) {
     throw new Error("Missing required fields");
+  }
+  if (!hasMulti) {
+    if (!input.metric || !input.operator || !input.target) {
+      throw new Error("Missing metric/operator/target");
+    }
   }
   const timeboxDate = new Date(input.timeboxISO);
   if (isNaN(timeboxDate.getTime())) throw new Error("Invalid timebox date");
@@ -74,10 +89,13 @@ export async function createPrediction(input: CreatePredictionInput): Promise<st
     operator: input.operator,
     target: input.target,
     referenceValue: input.referenceValue ?? "",
+    metrics: hasMulti ? input.metrics : undefined,
+    rationale: input.rationale ?? "",
     timebox: Timestamp.fromDate(timeboxDate),
     taxonomy: input.taxonomy,
     status: "pending",
-    aiScore: { plausibility: 0, vaguenessFlag: false, notes: [] },
+    aiScore: input.aiScore ?? { plausibility: 0, vaguenessFlag: false, notes: [] },
+    aiAnalysis: input.aiAnalysis ?? undefined,
     humanVotes: { outcome: { calledIt: 0, botched: 0, fence: 0 }, quality: { high: 0, low: 0 } },
     comments: [],
     createdAt: serverTimestamp(),
