@@ -1,6 +1,8 @@
 "use client";
 import type { Prediction } from "../../types/prediction";
 import RelativeDaysText from "../RelativeDaysText/RelativeDaysText";
+import { useMemo, useState } from "react";
+import { addComment } from "../../services/discussion-service";
 
 export default function PredictionModal({ prediction, onClose }: { prediction: Prediction; onClose: () => void }) {
   const calledIt = prediction.humanVotes?.outcome?.calledIt ?? 0;
@@ -8,6 +10,9 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
   const fence = prediction.humanVotes?.outcome?.fence ?? 0;
   const totalVotes = calledIt + botched + fence;
   const pct = (v: number) => (totalVotes > 0 ? Math.round((v / totalVotes) * 100) : 0);
+  const [comments, setComments] = useState<string[]>(useMemo(() => prediction.comments ?? [], [prediction.id]));
+  const [commentText, setCommentText] = useState("");
+  const [posting, setPosting] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50" onClick={onClose}>
@@ -82,12 +87,44 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
             </div>
 
             <details className="rounded border border-neutralBorder">
-              <summary className="px-3 py-2 cursor-pointer select-none text-sm">Discussion ({prediction.comments?.length ?? 0})</summary>
-              <div className="px-3 py-2 text-sm text-neutral-700 grid gap-2">
-                {(prediction.comments ?? []).length === 0 && <div className="text-neutral-500">No comments yet.</div>}
-                {(prediction.comments ?? []).map((c, i) => (
+              <summary className="px-3 py-2 cursor-pointer select-none text-sm">Discussion ({comments.length})</summary>
+              <div className="px-3 py-2 text-sm text-neutral-700 grid gap-3">
+                {comments.length === 0 && <div className="text-neutral-500">No comments yet.</div>}
+                {comments.map((c, i) => (
                   <div key={i} className="border-t border-neutralBorder pt-2">{c}</div>
                 ))}
+                <div className="border-t border-neutralBorder pt-3 grid gap-2">
+                  <label className="text-xs text-neutral-500" htmlFor="new-comment">Add a comment</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="new-comment"
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Add a falsifiable objection..."
+                      className="flex-1 px-3 py-2 rounded border border-neutralBorder focus:outline-none focus:ring-2 focus:ring-neutralBorder/50"
+                    />
+                    <button
+                      className="text-sm px-3 py-2 rounded border border-neutralBorder hover:bg-neutralBg disabled:opacity-60"
+                      disabled={posting || !commentText.trim()}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!commentText.trim()) return;
+                        setPosting(true);
+                        const text = commentText.trim();
+                        try {
+                          setComments((prev) => [...prev, text]);
+                          setCommentText("");
+                          await addComment(prediction.id, text);
+                        } catch (err) {
+                          // rollback on error
+                          setComments((prev) => prev.filter((v, idx) => !(idx === prev.length - 1 && v === text)));
+                        } finally {
+                          setPosting(false);
+                        }
+                      }}
+                    >Post</button>
+                  </div>
+                </div>
               </div>
             </details>
           </div>

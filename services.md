@@ -81,3 +81,47 @@
 - dependencies
   - Secret Manager (GEMINI_*), emulator guard
 
+
+## vote-service (Client Service)
+- tag: beta
+- description: Casts a per-user vote on a prediction and transactionally updates aggregated counts on the prediction document.
+
+- interfaces
+  - inputs
+    - predictionId: string
+    - direction: 'up' | 'down'
+    - user: { uid: string } (must be authenticated)
+  - outputs
+    - Promise<void> (resolves on success)
+  - side_effects
+    - Firestore transaction:
+      - Creates/sets `predictions/{id}/votes/{uid}` with { direction, ts }
+      - Updates `predictions/{id}.humanVotes` aggregate fields (up, down, total)
+
+- observability
+  - logs: start, end, and errors
+
+- dependencies
+  - Firebase Auth, Firestore
+
+
+## discussion-service (Client Service)
+- tag: beta
+- description: Appends a new comment to a prediction's `comments` array.
+
+- interfaces
+  - inputs
+    - predictionId: string
+    - text: string
+    - user: { uid: string; displayName?: string; photoURL?: string }
+  - outputs
+    - Promise<string> (commentId)
+  - side_effects
+    - Firestore update using `arrayUnion` to add a comment object with metadata
+
+- observability
+  - logs: start, end, and errors
+
+- dependencies
+  - Firebase Auth, Firestore
+

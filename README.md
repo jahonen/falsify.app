@@ -5,16 +5,17 @@ Falsify is a web app for making and reviewing falsifiable predictions. It includ
 - Live Hosting: https://falsify-app.web.app
 - Functions (example): `sendEmail` (Gen2) [requires Firebase ID token]
 
-## Current epic: Prediction Modal + AI Analysis
-- NewPredictionModal: supports 1–3 metrics, `rationale`, and a two-step flow.
-  - Propose → runs `aiAnalyze` (Cloud Function) to score Boldness/Relevance (1–100).
-  - Submit → enabled only after a successful Propose for the current inputs.
-  - Modal cannot be closed by overlay/Escape; only by the X button.
-- PredictionCard: shows all metrics, rationale, and Boldness/Relevance chips.
+## Current epic: Voting & Discussions MVP
+- VoteButtons: optimistic per-user voting with transactional updates to aggregated counts.
+- Discussions: basic comment append to predictions with modal UI.
+- Continues to build on the Prediction Modal + AI Analysis foundation.
 
 ## Recent additions
-- Search v1: front page respects `?q` and filters client-side by summary, rationale, and metrics.
-- Expanded Prediction modal: clicking a card opens a modal with full details (metrics, rationale, AI analysis, timeline, verdict, basic discussion section).
+- Search v1: `?q` synced from header search and client-side filtering on summary, rationale, metrics.
+- Expanded Prediction modal: full details + basic discussion section.
+- About page linked in footer with mission and dedication.
+- SEO basics: `sitemap.xml`, `robots.txt`, and `public/llms.txt`.
+- Next.js fix: `useSearchParams()` usage wrapped in a Suspense boundary on `/`.
 
 ## Tech stack
 - Next.js 14 + React 18
@@ -29,7 +30,7 @@ Falsify is a web app for making and reviewing falsifiable predictions. It includ
 - `LICENSE` — MIT
 
 ## Getting started (local)
-Prerequisites: Node 20+, npm, Firebase CLI, gcloud SDK.
+Prerequisites: Node 20 (LTS), npm, Firebase CLI, gcloud SDK.
 
 1) Install dependencies
 ```
@@ -48,7 +49,7 @@ npm run dev
 Open http://localhost:3000
 
 ## Deploy
-- Hosting (Next.js Web Frameworks integration)
+- Hosting (Next.js Web Frameworks integration creates a Cloud Function for SSR/Image Optimization)
 ```
 firebase deploy --only hosting
 ```
@@ -59,6 +60,10 @@ firebase deploy --only functions:aiScore
 firebase deploy --only functions:sendEmail
 ```
 
+Notes:
+- Node.js 20 is required for local tooling and Cloud Functions runtime. Newer Node versions may fail the framework integration.
+- The Hosting integration deploys an auto-managed function (e.g., `ssrfalsifyapp`) for Next.js. Project IAM may need `roles/functions.admin` to set invoker on first deploy.
+
 ## Secrets & configuration
 - Secret Manager (project: falsify-app)
   - `SENDGRID_API_KEY`
@@ -68,9 +73,10 @@ firebase deploy --only functions:sendEmail
 
 ## Security rules (summary)
 - Firestore:
-  - Create/update/delete predictions and create comments require verified email.
+  - Predictions: create/update/delete require verified email.
+  - Comments: append-only to `prediction.comments` for verified users.
+  - Votes: per-user vote docs in `predictions/{id}/votes` (create-only). Aggregated counts updated transactionally.
   - Users can update their own profile docs.
-  - Votes: create only; updates/deletes disabled.
 - Storage:
   - Avatars stored under `avatars/{uid}.{ext}`; download links via `getDownloadURL`.
 

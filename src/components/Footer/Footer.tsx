@@ -14,6 +14,7 @@ export default function Footer() {
           <span>© {new Date().getFullYear()} Falsify</span>
         </div>
         <nav className="flex items-center gap-4">
+          <Link href={{ pathname: "/about" }} className="hover:underline">About</Link>
           <Link href={{ pathname: "/privacy" }} className="hover:underline">Privacy</Link>
           <Link href={{ pathname: "/terms" }} className="hover:underline">Terms</Link>
           <button onClick={openConsent} className="hover:underline">Cookie settings</button>

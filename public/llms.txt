@@ -1,0 +1,5 @@
+# Crawl directive for AI crawlers / LLMs
+# Purpose: allow reasonable indexing while preventing scraping of API-like endpoints.
+User-agent: *
+Allow: /
+Disallow: /api/
