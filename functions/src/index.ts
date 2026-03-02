@@ -66,7 +66,7 @@ export const aiScore = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION], 
     const prompt = `You are scoring a prediction for a public prediction market app. Return STRICT JSON only with keys: plausibility (0-10 integer), vaguenessFlag (boolean), notes (array of 1-4 short strings). Do not include any other text.\n\nPrediction:\nsummary: ${summary}\nmetric: ${metric}\noperator: ${operator}\ntarget: ${body.target}\nreference: ${body.referenceValue || ""}\ntimebox: ${body.timeboxISO || ""}\ntaxonomy: ${JSON.stringify(body.taxonomy || {})}`;
     const resp = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 256 }
+      generationConfig: { temperature: 0.2, maxOutputTokens: 256, responseMimeType: "application/json" }
     });
     const text = resp.response?.candidates?.[0]?.content?.parts?.[0]?.text || "";
     functions.logger.info("aiScore model output", { textLen: text.length, preview: text.slice(0, 200) });
