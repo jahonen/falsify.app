@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { getAuth, signOut } from "firebase/auth";
 import { db, auth, storage, emulatorMode, loadAnalytics } from "../src/lib/firebase-client";
 import type { Prediction } from "../src/types/prediction";
@@ -21,10 +21,6 @@ export default function HomePage() {
     pageSize: 10,
     domain: selectedTaxonomy?.domain ?? null
   });
-  const params = useSearchParams();
-  const q = params.get("q") || "";
-  const tokens = useMemo(() => tokenizeQuery(q), [q]);
-  const filteredPredictions = useMemo(() => predictions.filter((p) => matchesPrediction(p as Prediction, tokens)), [predictions, tokens]);
   const [activeNav, setActiveNav] = useState<"feed" | "mine" | "voted" | "watchlist">("feed");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -92,51 +88,16 @@ export default function HomePage() {
 
           <section className="grid gap-3">
             <h2 className="font-medium">Recent predictions</h2>
-            {feedError && (
-              <div className="bg-[#FFF3F2] border border-[#F0C1BD] text-[#7A2E2A] rounded-lg p-3 text-sm">
-                {feedError}
-              </div>
-            )}
-            {feedLoading && predictions.length === 0 && (
-              <div className="bg-white rounded-lg shadow-subtle p-4 text-sm text-neutral-500">Loading…</div>
-            )}
-            {!feedLoading && filteredPredictions.length === 0 && (
-              <div className="bg-white rounded-lg shadow-subtle p-4 grid gap-2">
-                <p className="text-sm text-neutral-600">No predictions yet{q ? ` for "${q}"` : ""}. Here’s a sample:</p>
-                <PredictionCard
-                  prediction={{
-                    id: "sample-1",
-                    authorId: "demo",
-                    summary: "US GDP will exceed $30T by end of 2028",
-                    metric: "US GDP > $30T",
-                    referenceValue: "$25T (2023)",
-                    timebox: new Date(new Date().getFullYear() + 2, 11, 31).toISOString(),
-                    taxonomy: { domain: "Economy", subcategory: "Macroeconomics", topic: "GDP" },
-                    status: "pending",
-                    aiScore: { plausibility: 7, vaguenessFlag: false, notes: [] },
-                    humanVotes: { outcome: { calledIt: 12, botched: 3, fence: 5 }, quality: { high: 9, low: 1 } },
-                    comments: [],
-                    createdAt: new Date()
-                  }}
-                />
-              </div>
-            )}
-            {filteredPredictions.length > 0 && (
-              <div className="grid gap-3">
-                {filteredPredictions.map((p) => (
-                  <div key={p.id} onClick={() => setOpenPrediction(p as Prediction)} role="button" className="cursor-pointer">
-                    <PredictionCard prediction={p} />
-                  </div>
-                ))}
-                <div className="flex items-center justify-center py-2">
-                  {hasMore && (
-                    <button className="text-sm px-3 py-1 rounded-md border border-neutralBorder hover:bg-neutralBg" onClick={loadMore} disabled={feedLoading}>
-                      {feedLoading ? "Loading…" : "Load more"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
+            <Suspense fallback={<div className="bg-white rounded-lg shadow-subtle p-4 text-sm text-neutral-500">Loading…</div>}>
+              <FeedSection
+                predictions={predictions}
+                feedLoading={feedLoading}
+                feedError={feedError as any}
+                hasMore={hasMore}
+                loadMore={loadMore}
+                onOpen={(p: Prediction) => setOpenPrediction(p)}
+              />
+            </Suspense>
           </section>
         </div>
       </div>
@@ -152,5 +113,76 @@ export default function HomePage() {
         <PredictionModal prediction={openPrediction} onClose={() => setOpenPrediction(null)} />
       )}
     </main>
+  );
+}
+
+function FeedSection({
+  predictions,
+  feedLoading,
+  feedError,
+  hasMore,
+  loadMore,
+  onOpen
+}: {
+  predictions: any[];
+  feedLoading: boolean;
+  feedError: any;
+  hasMore: boolean;
+  loadMore: () => void;
+  onOpen: (p: Prediction) => void;
+}) {
+  const params = useSearchParams();
+  const q = params.get("q") || "";
+  const tokens = useMemo(() => tokenizeQuery(q), [q]);
+  const filteredPredictions = useMemo(() => predictions.filter((p) => matchesPrediction(p as Prediction, tokens)), [predictions, tokens]);
+
+  return (
+    <div className="grid gap-3">
+      {feedError && (
+        <div className="bg-[#FFF3F2] border border-[#F0C1BD] text-[#7A2E2A] rounded-lg p-3 text-sm">
+          {String(feedError)}
+        </div>
+      )}
+      {feedLoading && predictions.length === 0 && (
+        <div className="bg-white rounded-lg shadow-subtle p-4 text-sm text-neutral-500">Loading…</div>
+      )}
+      {!feedLoading && filteredPredictions.length === 0 && (
+        <div className="bg-white rounded-lg shadow-subtle p-4 grid gap-2">
+          <p className="text-sm text-neutral-600">No predictions yet{q ? ` for "${q}"` : ""}. Here’s a sample:</p>
+          <PredictionCard
+            prediction={{
+              id: "sample-1",
+              authorId: "demo",
+              summary: "US GDP will exceed $30T by end of 2028",
+              metric: "US GDP > $30T",
+              referenceValue: "$25T (2023)",
+              timebox: new Date(new Date().getFullYear() + 2, 11, 31).toISOString(),
+              taxonomy: { domain: "Economy", subcategory: "Macroeconomics", topic: "GDP" },
+              status: "pending",
+              aiScore: { plausibility: 7, vaguenessFlag: false, notes: [] },
+              humanVotes: { outcome: { calledIt: 12, botched: 3, fence: 5 }, quality: { high: 9, low: 1 } },
+              comments: [],
+              createdAt: new Date()
+            }}
+          />
+        </div>
+      )}
+      {filteredPredictions.length > 0 && (
+        <div className="grid gap-3">
+          {filteredPredictions.map((p) => (
+            <div key={p.id} onClick={() => onOpen(p as Prediction)} role="button" className="cursor-pointer">
+              <PredictionCard prediction={p} />
+            </div>
+          ))}
+          <div className="flex items-center justify-center py-2">
+            {hasMore && (
+              <button className="text-sm px-3 py-1 rounded-md border border-neutralBorder hover:bg-neutralBg" onClick={loadMore} disabled={feedLoading}>
+                {feedLoading ? "Loading…" : "Load more"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
