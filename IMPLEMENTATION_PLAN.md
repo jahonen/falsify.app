@@ -38,6 +38,8 @@ Owner: Cascade (updates continuously as work progresses)
   - Consent capture at signup and /consent settings page
   - sendEmail (Gen2) deployed; enforces consents; appends /consent link
   - Hosting target configured and deployed (Next.js prerender)
+  - Search v1: `?q` filters feed client-side by summary, rationale, metrics (id: search-v1)
+  - Expanded Prediction modal on card click with Discussion section (id: modal-expand)
 - IN_PROGRESS
   - Feed MVP (id: feed-mvp)
     - Completed: predictionService, usePredictionFeed hook, integration on home page, Load more
@@ -101,10 +103,11 @@ Owner: Cascade (updates continuously as work progresses)
 ## 6. Next Actions (short-term)
 1) Build Sidebar (Nav/DomainList) and wire filters (feed-mvp)
 2) Add composite index for predictions: taxonomy.domain asc + createdAt desc (feed-mvp)
-3) NewPredictionModal UI + validation + aiService client (create-modal)
-4) Cloud Function: aiScore (func-aiscore)
+3) Search UX polish: debounce header input; add clear button (search-v1-followup)
+4) Optional: Deep-link expanded card via `?pred=<id>` (modal-expand-followup)
 5) Add Open Graph and Twitter metadata (seo-metadata)
 
 ## 7. Changelog
 - v1 (2026-03-01): Initial plan created; current status and next actions recorded.
 - v2 (2026-03-01): Started Feed MVP; added predictionService, usePredictionFeed, and home integration with pagination.
+- v3 (2026-03-02): Implemented Search v1 (?q client filter) and expanded Prediction modal; updated README and docs.

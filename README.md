@@ -12,6 +12,10 @@ Falsify is a web app for making and reviewing falsifiable predictions. It includ
   - Modal cannot be closed by overlay/Escape; only by the X button.
 - PredictionCard: shows all metrics, rationale, and Boldness/Relevance chips.
 
+## Recent additions
+- Search v1: front page respects `?q` and filters client-side by summary, rationale, and metrics.
+- Expanded Prediction modal: clicking a card opens a modal with full details (metrics, rationale, AI analysis, timeline, verdict, basic discussion section).
+
 ## Tech stack
 - Next.js 14 + React 18
 - Firebase: Auth, Firestore, Storage, Hosting, Emulator Suite
