@@ -14,9 +14,27 @@
   justify-content: space-between;
   gap: 1rem;
 }
+.searchWrap { flex: 1 1 auto; max-width: 28rem; margin: 0 1rem; }
+.searchForm { width: 100%; }
+.searchInput {
+  width: 100%;
+  border: 1px solid #E0E0E0;
+  background: #FAFAFA;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.75rem;
+}
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-weight: 600;
   font-size: 1.125rem;
+}
+.brandIcon {
+  width: 20px;
+  height: 20px;
+  border-radius: 0.375rem;
+  object-fit: cover;
 }
 .nav { display: none; gap: 1rem; }
 .link { color: #333333; }

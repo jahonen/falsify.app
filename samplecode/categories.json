@@ -326,6 +326,92 @@
       ]
     },
     {
+      "name": "Sports",
+      "subcategories": [
+        {
+          "name": "Team Sports",
+          "topics": [
+            "Football / Soccer",
+            "Basketball",
+            "Baseball",
+            "American Football",
+            "Ice Hockey",
+            "Cricket",
+            "Rugby",
+            "Other"
+          ]
+        },
+        {
+          "name": "Individual Sports",
+          "topics": [
+            "Tennis",
+            "Golf",
+            "Athletics / Track & Field",
+            "Cycling",
+            "Swimming",
+            "Combat Sports (e.g., Boxing, MMA)",
+            "Motorsports (e.g., F1, MotoGP)",
+            "Other"
+          ]
+        },
+        {
+          "name": "Tournaments & Championships",
+          "topics": [
+            "FIFA World Cup & Continental Cups",
+            "Olympics & Paralympics",
+            "Grand Slams (e.g., Tennis, Golf)",
+            "Leagues & Playoffs (e.g., NBA, NFL, NHL, MLB)",
+            "International Series & Tours",
+            "Other"
+          ]
+        },
+        {
+          "name": "Transfers & Contracts",
+          "topics": [
+            "Player Transfers",
+            "Free Agency & Drafts",
+            "Coaching & Management Changes",
+            "Sponsorships & Endorsements",
+            "Other"
+          ]
+        },
+        {
+          "name": "Records, Awards & Milestones",
+          "topics": [
+            "World Records",
+            "Season / Career Records",
+            "Awards (e.g., Ballon d'Or, MVP)",
+            "Hall of Fame & Legacy",
+            "Other"
+          ]
+        },
+        {
+          "name": "Governance & Regulations",
+          "topics": [
+            "Doping & Anti-Doping",
+            "Financial Fair Play & Compliance",
+            "Rule Changes & Officiating",
+            "Ownership & Club Finances",
+            "Other"
+          ]
+        },
+        {
+          "name": "eSports",
+          "topics": [
+            "Leagues & Tournaments",
+            "Teams & Rosters",
+            "Game Patches & Meta",
+            "Viewership & Sponsorship",
+            "Other"
+          ]
+        },
+        {
+          "name": "Other",
+          "topics": []
+        }
+      ]
+    },
+    {
       "name": "Other",
       "subcategories": [
         {

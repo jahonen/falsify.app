@@ -17,12 +17,29 @@ export interface HumanVotes {
   quality: { high: number; low: number };
 }
 
+export interface Metric {
+  metric: string;
+  operator: ">" | ">=" | "<" | "<=" | "=";
+  target: string;
+}
+
+export interface AIAnalysis {
+  boldness: number;
+  relevance: number;
+  notes?: string[];
+}
+
 export interface Prediction {
   id: string;
   authorId: string;
   summary: string;
+  // Legacy flat fields (kept for backward compatibility in UI)
   metric: string;
   referenceValue: string;
+  // New fields
+  metrics?: Metric[];
+  rationale?: string;
+  aiAnalysis?: AIAnalysis;
   timebox: string;
   taxonomy: Taxonomy;
   status: PredictionStatus;

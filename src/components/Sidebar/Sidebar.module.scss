@@ -1,0 +1,42 @@
+.sidebar {
+  background: #ffffff;
+  border: 1px solid #E0E0E0;
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.5rem;
+}
+.sectionLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.25rem 0.5rem;
+}
+.navList { display: grid; gap: 0.25rem; padding: 0.25rem; }
+.navItem {
+  text-align: left;
+  padding: 0.5rem 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid transparent;
+  color: #444;
+}
+.navItem:hover { background: #F7F7F7; border-color: #E5E5E5; }
+.active { background: #F2F2F2; border-color: #DDD; }
+.divider { height: 1px; background: #EAEAEA; margin: 0.5rem 0.25rem; }
+.domainList { list-style: none; padding: 0.25rem; margin: 0; display: grid; gap: 0.25rem; }
+.domainItem {
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid transparent;
+  color: #444;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.domainItem:hover { background: #F7F7F7; border-color: #E5E5E5; }
+.domainDot {
+  width: 6px; height: 6px; border-radius: 9999px;
+  background: #999;
+}

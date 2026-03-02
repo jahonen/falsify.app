@@ -27,6 +27,7 @@ Owner: Cascade (updates continuously as work progresses)
    7.2 Tests: date-utils unit; PredictionCard snapshot; service unit tests (id: tests-init)
 8. Hosting/Deploy & Observability [EPIC] (id: epic-deploy-obs)
    8.1 Link Hosting site; analytics events (consent-gated) (id: deploy-analytics)
+   8.2 Add Open Graph and Twitter metadata (title, description, image) for rich previews (id: seo-metadata)
 9. Upgrades & IAM Hardening [EPIC] (id: epic-upgrades)
    9.1 Upgrade functions to Node 22 and firebase-functions v5+
    9.2 Prune temporary IAM to least privilege (id: upgrade-prune-iam)
@@ -39,6 +40,8 @@ Owner: Cascade (updates continuously as work progresses)
   - Hosting target configured and deployed (Next.js prerender)
 - IN_PROGRESS
   - Feed MVP (id: feed-mvp)
+    - Completed: predictionService, usePredictionFeed hook, integration on home page, Load more
+    - Remaining: Sidebar components (Nav/DomainList), composite indexes for domain + createdAt
 - PENDING
   - create-modal, func-aiscore, votes-impl, agg-jobs-ui, search-watch-mvp
   - rules-indexes-task, docs-interfaces, tests-init, deploy-analytics, upgrade-prune-iam
@@ -75,6 +78,8 @@ Owner: Cascade (updates continuously as work progresses)
   - component.md, services.md; unit + snapshot tests
 - Deploy/Analytics (D-1)
   - Link Hosting to Web app; add consent-gated analytics
+- SEO Metadata (D-2 / seo-metadata)
+  - Add Open Graph and Twitter fields (title, description, image) for better link previews
 - Upgrades/IAM (U-1/U-2)
   - Node 22 + functions v5+; prune IAM to least privilege
 
@@ -94,10 +99,12 @@ Owner: Cascade (updates continuously as work progresses)
 - Docs/Tests: minimal tests pass; docs present; lifecycle tags applied.
 
 ## 6. Next Actions (short-term)
-1) Implement predictionService + usePredictionFeed + indexes (feed-mvp)
-2) Build Sidebar (Nav/DomainList) and wire filters (feed-mvp)
+1) Build Sidebar (Nav/DomainList) and wire filters (feed-mvp)
+2) Add composite index for predictions: taxonomy.domain asc + createdAt desc (feed-mvp)
 3) NewPredictionModal UI + validation + aiService client (create-modal)
 4) Cloud Function: aiScore (func-aiscore)
+5) Add Open Graph and Twitter metadata (seo-metadata)
 
 ## 7. Changelog
 - v1 (2026-03-01): Initial plan created; current status and next actions recorded.
+- v2 (2026-03-01): Started Feed MVP; added predictionService, usePredictionFeed, and home integration with pagination.
