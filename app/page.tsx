@@ -8,6 +8,7 @@ import Link from "next/link";
 import { usePredictionFeed } from "../src/hooks/usePredictionFeed";
 import Sidebar from "../src/components/Sidebar/Sidebar";
 import NewPredictionModal from "../src/components/NewPredictionModal/NewPredictionModal";
+import PredictionModal from "../src/components/PredictionModal/PredictionModal";
 import { useSearchParams } from "next/navigation";
 import { tokenizeQuery, matchesPrediction } from "../src/lib/search";
 
@@ -27,6 +28,7 @@ export default function HomePage() {
   const [activeNav, setActiveNav] = useState<"feed" | "mine" | "voted" | "watchlist">("feed");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [openPrediction, setOpenPrediction] = useState<Prediction | null>(null);
 
   useEffect(() => {
     const a = getAuth();
@@ -122,7 +124,9 @@ export default function HomePage() {
             {filteredPredictions.length > 0 && (
               <div className="grid gap-3">
                 {filteredPredictions.map((p) => (
-                  <PredictionCard key={p.id} prediction={p} />
+                  <div key={p.id} onClick={() => setOpenPrediction(p as Prediction)} role="button" className="cursor-pointer">
+                    <PredictionCard prediction={p} />
+                  </div>
                 ))}
                 <div className="flex items-center justify-center py-2">
                   {hasMore && (
@@ -143,6 +147,9 @@ export default function HomePage() {
           onCreated={() => { setCreateOpen(false); refresh(); }}
           initialTaxonomy={selectedTaxonomy ?? undefined}
         />
+      )}
+      {openPrediction && (
+        <PredictionModal prediction={openPrediction} onClose={() => setOpenPrediction(null)} />
       )}
     </main>
   );
