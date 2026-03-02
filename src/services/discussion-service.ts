@@ -1,4 +1,4 @@
-import { arrayUnion, doc, getFirestore, serverTimestamp, updateDoc } from "firebase/firestore";
+import { addDoc, arrayUnion, collection, doc, getFirestore, serverTimestamp, updateDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 export async function addComment(predictionId: string, text: string): Promise<void> {
@@ -10,6 +10,12 @@ export async function addComment(predictionId: string, text: string): Promise<vo
 
   const db = getFirestore();
   const predRef = doc(db, "predictions", predictionId);
+  // Write structured comment to subcollection for activity queries
+  await addDoc(collection(db, "predictions", predictionId, "comments"), {
+    userId: user.uid,
+    text: trimmed,
+    createdAt: serverTimestamp(),
+  });
   await updateDoc(predRef, {
     comments: arrayUnion(trimmed),
     updatedAt: serverTimestamp(),

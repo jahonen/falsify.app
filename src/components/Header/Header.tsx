@@ -2,11 +2,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import styles from "./Header.module.scss";
-import { getAuth, onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
-import { doc, getDoc, getFirestore, setDoc } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { storage } from "../../lib/firebase-client";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, getDoc, getFirestore, onSnapshot } from "firebase/firestore";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import EditProfileModal from "../EditProfileModal/EditProfileModal";
 
 function useUser() {
   const [uid, setUid] = useState<string | null>(null);
@@ -15,12 +14,17 @@ function useUser() {
   const [photoURL, setPhotoURL] = useState<string | null>(null);
   useEffect(() => {
     const a = getAuth();
+    let unsubDoc: (() => void) | null = null;
     const unsub = onAuthStateChanged(a, async (u) => {
       if (!u) {
         setUid(null);
         setEmail(null);
         setDisplayName(null);
         setPhotoURL(null);
+        if (unsubDoc) {
+          unsubDoc();
+          unsubDoc = null;
+        }
         return;
       }
       setUid(u.uid);
@@ -29,13 +33,18 @@ function useUser() {
       setPhotoURL(u.photoURL ?? null);
       try {
         const db = getFirestore();
-        const snap = await getDoc(doc(db, "users", u.uid));
-        const d = snap.exists() ? (snap.data() as any) : null;
-        if (d?.displayName) setDisplayName(d.displayName);
-        if (d?.photoURL) setPhotoURL(d.photoURL);
+        if (unsubDoc) unsubDoc();
+        unsubDoc = onSnapshot(doc(db, "users", u.uid), (snap) => {
+          const d = snap.exists() ? (snap.data() as any) : null;
+          if (d?.displayName !== undefined) setDisplayName(d.displayName || null);
+          if (d?.photoURL !== undefined) setPhotoURL(d.photoURL || null);
+        });
       } catch {}
     });
-    return () => unsub();
+    return () => {
+      if (unsubDoc) unsubDoc();
+      unsub();
+    };
   }, []);
   return { uid, email, displayName, photoURL } as const;
 }
@@ -52,9 +61,6 @@ export default function Header() {
   const { uid, email, displayName, photoURL } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [nameInput, setNameInput] = useState(displayName ?? "");
-  const [file, setFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -62,7 +68,7 @@ export default function Header() {
   const [search, setSearch] = useState(params.get("q") || "");
 
   useEffect(() => {
-    setNameInput(displayName ?? "");
+    // no-op: EditProfileModal manages its own state
   }, [displayName]);
 
   useEffect(() => {
@@ -79,33 +85,7 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  async function saveProfile() {
-    if (!uid) return;
-    setSaving(true);
-    try {
-      let newPhoto = photoURL ?? null;
-      if (file) {
-        const ext = file.name.split(".").pop() || "jpg";
-        const objectRef = ref(storage, `avatars/${uid}.${ext}`);
-        const uploaded = await uploadBytes(objectRef, file, { contentType: file.type || "image/jpeg" });
-        newPhoto = await getDownloadURL(uploaded.ref);
-      }
-      const a = getAuth();
-      if (a.currentUser) {
-        await updateProfile(a.currentUser, { displayName: nameInput || null, photoURL: newPhoto || undefined });
-      }
-      const db = getFirestore();
-      await setDoc(
-        doc(db, "users", uid),
-        { displayName: nameInput || null, photoURL: newPhoto || null },
-        { merge: true }
-      );
-      setEditorOpen(false);
-    } catch {
-    } finally {
-      setSaving(false);
-    }
-  }
+  // EditProfileModal handles profile persistence
 
   return (
     <header className={styles.header}>
@@ -148,6 +128,7 @@ export default function Header() {
           {menuOpen && uid && (
             <div className={styles.menu}>
               <button className={styles.menuItem} onClick={() => { setEditorOpen(true); setMenuOpen(false); }}>Profile</button>
+              <Link href={{ pathname: "/u/" + uid }} className={styles.menuItem}>View profile</Link>
               <Link href={{ pathname: "/consent" }} className={styles.menuItem}>Email settings</Link>
               <button className={styles.menuItem} onClick={() => { const a = getAuth(); signOut(a); setMenuOpen(false); }}>Sign out</button>
             </div>
@@ -156,23 +137,7 @@ export default function Header() {
       </div>
 
       {editorOpen && uid && (
-        <div className={styles.modalBackdrop} onClick={() => !saving && setEditorOpen(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h2 className={styles.modalTitle}>Edit profile</h2>
-            <div className={styles.formRow}>
-              <label className={styles.label}>Display name</label>
-              <input className={styles.input} value={nameInput} onChange={(e) => setNameInput(e.target.value)} placeholder="Your name" />
-            </div>
-            <div className={styles.formRow}>
-              <label className={styles.label}>Avatar image</label>
-              <input className={styles.input} type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-            </div>
-            <div className={styles.actions}>
-              <button className={styles.secondary} onClick={() => setEditorOpen(false)} disabled={saving}>Cancel</button>
-              <button className={styles.primary} onClick={saveProfile} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
-            </div>
-          </div>
-        </div>
+        <EditProfileModal onClose={() => setEditorOpen(false)} onSaved={() => { /* optionally refresh header state */ }} />
       )}
     </header>
   );

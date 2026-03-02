@@ -105,6 +105,70 @@
   - Firebase Auth, Firestore
 
 
+## activity-service (Client Service)
+- tag: alpha
+- description: Lists a user's recent predictions, votes, and comments for profile Activity.
+
+- interfaces
+  - inputs
+    - listUserPredictions(uid: string, limit?: number)
+    - listUserVotes(uid: string, limit?: number)
+    - listUserComments(uid: string, limit?: number)
+  - outputs
+    - Promise<UserPredictionActivity[]>
+    - Promise<UserVoteActivity[]>
+    - Promise<UserCommentActivity[]>
+  - side_effects
+    - Firestore queries: `predictions` (authorId == uid), collectionGroup `votes` (userId == uid), collectionGroup `comments` (userId == uid)
+
+- observability
+  - logs: minimal in client (surfaced via UI states)
+
+- dependencies
+  - Firestore
+
+
+## dm-service (Client Service)
+- tag: alpha
+- description: Provides 1:1 direct messages between two users via threads and messages subcollections.
+
+- interfaces
+  - inputs
+    - createOrGetThread(otherUid: string) => Promise<string>
+    - sendMessage(threadId: string, text: string) => Promise<void>
+    - listMessages(threadId: string, max?: number) => Promise<DMMessage[]>
+    - listThreadsForSelf(max?: number) => Promise<DMThread[]>
+  - outputs
+    - as above
+  - side_effects
+    - Reads/writes `dms/{threadId}` and `dms/{threadId}/messages`
+
+- observability
+  - logs: minimal in client (surfaced via UI states)
+
+- dependencies
+  - Firebase Auth, Firestore
+
+## profile-service (Client Service)
+- tag: alpha
+- description: Reads and upserts the signed-in user's profile document.
+
+- interfaces
+  - inputs
+    - getUserProfile(uid: string)
+    - upsertOwnProfile(partial: { displayName?, bio?, photoURL? })
+  - outputs
+    - Promise<UserProfile | null> for get
+    - Promise<void> for upsert
+  - side_effects
+    - Reads/writes `users/{uid}`; sets createdAt/updatedAt server timestamps
+
+- observability
+  - logs: minimal in client (surfaced via UI states)
+
+- dependencies
+  - Firebase Auth, Firestore
+
 ## discussion-service (Client Service)
 - tag: beta
 - description: Appends a new comment to a prediction's `comments` array.

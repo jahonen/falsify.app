@@ -23,9 +23,38 @@ service cloud.firestore {
         );
     }
 
+    match /predictions/{predictionId}/comments/{commentId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      // Optionally restrict update/delete; keep immutable for now
+      allow update, delete: if false;
+    }
+
     match /predictions/{predictionId}/votes/{userId} {
       allow read: if true;
       allow create, update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Direct messages: threads and messages
+    match /dms/{threadId} {
+      // Only participants can read a thread
+      allow read: if request.auth != null && request.auth.uid in resource.data.participants;
+      // Create requires the caller to be part of participants (2 users) on write
+      allow create: if request.auth != null
+        && request.resource.data.participants is list
+        && request.resource.data.participants.size() == 2
+        && request.auth.uid in request.resource.data.participants;
+      // Updates only by participants (e.g., lastMessageAt)
+      allow update, delete: if request.auth != null && request.auth.uid in resource.data.participants;
+    }
+
+    match /dms/{threadId}/messages/{messageId} {
+      function isParticipant() {
+        return request.auth != null && request.auth.uid in get(/databases/$(database)/documents/dms/$(threadId)).data.participants;
+      }
+      allow read: if isParticipant();
+      allow create: if isParticipant() && request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if false; // immutable messages for now
     }
 
     match /comments/{commentId} {

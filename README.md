@@ -5,10 +5,10 @@ Falsify is a web app for making and reviewing falsifiable predictions. It includ
 - Live Hosting: https://falsify-app.web.app
 - Functions (example): `sendEmail` (Gen2) [requires Firebase ID token]
 
-## Current epic: Voting & Discussions MVP
-- VoteButtons: optimistic per-user voting with transactional updates to aggregated counts.
-- Discussions: basic comment append to predictions with modal UI.
-- Continues to build on the Prediction Modal + AI Analysis foundation.
+## Current epic: Profiles & Reputation
+- Profiles v1: public profile at `/u/[uid]` and self-edit modal (displayName, bio, avatar).
+- Activity: surface user predictions/votes/comments over time (next).
+- Reputation: simple score and badges; leaderboards (next).
 
 ## Recent additions
 - Search v1: `?q` synced from header search and client-side filtering on summary, rationale, metrics.

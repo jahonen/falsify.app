@@ -47,9 +47,9 @@ export async function castVote(predictionId: string, variant: VoteVariant): Prom
     });
 
     if (existingSnap.exists()) {
-      tx.update(voteRef, { type: variant, updatedAt: serverTimestamp() });
+      tx.update(voteRef, { type: variant, userId: uid, updatedAt: serverTimestamp() });
     } else {
-      tx.set(voteRef, { type: variant, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      tx.set(voteRef, { type: variant, userId: uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     }
   });
 }

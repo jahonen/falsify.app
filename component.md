@@ -1,5 +1,53 @@
 # Components Documentation
 
+## ProfilePage
+- tag: alpha
+- description: Public user profile page at `/u/[uid]` showing avatar, display name, and bio. Owner can open edit modal.
+
+- interfaces
+  - inputs
+    - uid: string
+  - outputs
+    - none
+  - side_effects
+    - Reads `users/{uid}` from Firestore
+
+- observability
+  - analytics: profile_view
+
+
+## EditProfileModal
+- tag: alpha
+- description: Modal to edit own profile fields: displayName, bio, avatar.
+
+- interfaces
+  - inputs
+    - onClose: () => void
+    - onSaved: () => void
+  - outputs
+    - none
+  - side_effects
+    - Calls `profile-service.upsertOwnProfile`
+
+- observability
+  - analytics: profile_edit_open/profile_edit_save/profile_edit_error
+
+
+## AvatarUploader
+- tag: alpha
+- description: Uploads avatar image to Firebase Storage and returns a URL to save in profile.
+
+- interfaces
+  - inputs
+    - onUploaded: (url: string) => void
+  - outputs
+    - none
+  - side_effects
+    - Writes to Storage at `avatars/{uid}.{ext}`; reads a download URL
+
+- observability
+  - analytics: avatar_upload_start/success/error
+
 ## NewPredictionModal
 - tag: beta
 - description: Modal for creating predictions with 1–3 metrics, optional rationale, and two-step Propose/Submit flow.
@@ -85,4 +133,22 @@
     - none
   - side_effects
     - none
+
+## UserProfileModal
+- tag: alpha
+- description: Reusable modal that displays a user's profile (avatar, name, bio) and lets you start a 1:1 DM thread.
+
+- interfaces
+  - inputs
+    - uid: string
+    - open: boolean
+    - onClose: () => void
+  - outputs
+    - none
+  - side_effects
+    - Reads `users/{uid}` from Firestore
+    - Reads/writes `dms/{threadId}` and `dms/{threadId}/messages` via `dm-service`
+
+- observability
+  - analytics: user_profile_modal_open/user_profile_modal_message_send
 
