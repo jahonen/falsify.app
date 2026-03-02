@@ -69,7 +69,7 @@ export const aiScore = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION], 
       generationConfig: { temperature: 0.2, maxOutputTokens: 256, responseMimeType: "application/json" }
     });
     const text = resp.response?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    functions.logger.info("aiScore model output", { textLen: text.length, preview: text.slice(0, 200) });
+    functions.logger.info("aiScore model output", { textLen: jsonText.length, preview: jsonText.slice(0, 200) });
     function tryParse(t: string): any {
       try { return JSON.parse(t); } catch {}
       const m = t.match(/```json\s*([\s\S]*?)```/i) || t.match(/```\s*([\s\S]*?)```/i);
@@ -79,7 +79,7 @@ export const aiScore = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION], 
       if (brace >= 0 && last > brace) { try { return JSON.parse(t.slice(brace, last + 1)); } catch {} }
       return null;
     }
-    const parsed = tryParse(text);
+    const parsed = (() => { try { return JSON.parse(jsonText); } catch (_) { return tryParse(jsonText); } })();
     const out = {
       plausibility: Math.max(0, Math.min(10, Number(parsed?.plausibility ?? 5))) | 0,
       vaguenessFlag: !!parsed?.vaguenessFlag,
