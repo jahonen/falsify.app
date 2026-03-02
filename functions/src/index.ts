@@ -17,7 +17,7 @@ const SENDGRID_API_KEY = defineSecret("SENDGRID_API_KEY");
 const GEMINI_MODEL_NAME = defineSecret("GEMINI_MODEL_NAME");
 const GEMINI_REGION = defineSecret("GEMINI_REGION");
 
-export const aiScore = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION], region: "us-central1", serviceAccount: "functions-runner@falsify-app.iam.gserviceaccount.com", invoker: "public" }, async (req: any, res: any) => {
+export const aiScore = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION], region: "us-central1", serviceAccount: "functions-runner@falsify-app.iam.gserviceaccount.com" }, async (req: any, res: any) => {
   const origin = (req.headers.origin as string | undefined) || "";
   const allow = /^http:\/\/localhost:(3000|3001)$/.test(origin) || origin === "https://falsify-app.web.app" || origin === "https://falsify-app.firebaseapp.com";
   if (allow) {
