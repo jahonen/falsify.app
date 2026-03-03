@@ -164,6 +164,93 @@ export const aiScore = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION], 
   }
 });
 
+// ----- Email digests: daily, weekly, monthly (summaries of unread notifications) -----
+function renderDigestEmail(params: { cadence: "daily" | "weekly" | "monthly"; count: number; items: Array<{ type: string; text?: string; predictionId?: string }>; baseUrl?: string }) {
+  const { cadence, count, items } = params;
+  const baseUrl = params.baseUrl || "https://falsify.app";
+  const title = `Your ${cadence} Falsify summary (${count} unread)`;
+  const consentUrl = `${baseUrl}/consent`;
+  const lines = items.slice(0, 10).map((n, i) => `• ${n.type === "comment" ? "Comment" : n.type === "term" ? "Prediction reached term" : n.type} ${n.text ? `– ${String(n.text).slice(0, 120)}` : ""}`);
+  const text = [
+    "Falsify",
+    title,
+    "",
+    ...lines,
+    "",
+    `View all notifications: ${baseUrl}/notifications`,
+    "",
+    `Manage your email settings: ${consentUrl}`
+  ].join("\n");
+  const html = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1" /><meta charSet="utf-8" />
+  <title>${title}</title>
+  <style>
+    body{background:#f6f7fb;margin:0;padding:24px;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial,'Noto Sans','Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol';color:#111827}
+    .container{max-width:640px;margin:0 auto;background:#ffffff;border-radius:12px;box-shadow:0 1px 3px rgba(15,23,42,.08);overflow:hidden}
+    .brand{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #e5e7eb;background:#0f172a;color:#fff}
+    .brand img{width:28px;height:28px;border-radius:6px;background:#fff}
+    .content{padding:20px}
+    h1{font-size:18px;margin:0 0 12px 0}
+    ul{padding-left:20px;margin:12px 0}
+    li{margin:6px 0}
+    .footer{padding:16px 20px;border-top:1px solid #e5e7eb;font-size:12px;color:#6b7280}
+    a{color:#2563eb;text-decoration:none}
+  </style></head>
+  <body>
+   <div class="container">
+     <div class="brand">
+       <img src="${baseUrl}/android-chrome-192x192.png" alt="Falsify" />
+       <strong>Falsify</strong>
+     </div>
+     <div class="content">
+       <h1>${title}</h1>
+       <p>Here are your latest unread notifications:</p>
+       ${items.length ? `<ul>${lines.map(l => `<li>${l.replace(/^•\s*/, "")}</li>`).join("")}</ul>` : `<p>No new items.</p>`}
+       <p><a href="${baseUrl}/notifications">View all notifications</a></p>
+     </div>
+     <div class="footer">
+       You are receiving this email because you opted in to ${cadence} summaries. You can <a href="${consentUrl}">manage your email settings</a> anytime.
+     </div>
+   </div>
+  </body></html>`;
+  return { subject: title, text, html };
+}
+
+async function sendDigestForCadence(cadence: "daily" | "weekly" | "monthly") {
+  const db = admin.firestore();
+  const consentField = cadence === "daily" ? "consents.digestDaily" : cadence === "weekly" ? "consents.digestWeekly" : "consents.digestMonthly";
+  const usersSnap = await db.collection("users").where(consentField, "==", true).limit(1000).get();
+  functions.logger.info("digest users", { cadence, count: usersSnap.size });
+  for (const u of usersSnap.docs) {
+    const uid = u.id;
+    const userData = (u.data() as any) || {};
+    const email = userData.email || (await admin.auth().getUser(uid).then(r => r.email).catch(() => null));
+    if (!email) continue;
+    const notifsSnap = await db.collection("users").doc(uid).collection("notifications").where("read", "==", false).orderBy("createdAt", "desc").limit(50).get();
+    const items = notifsSnap.docs.map(d => ({ type: String((d.data() as any)?.type || "notification"), text: (d.data() as any)?.text || "", predictionId: (d.data() as any)?.predictionId || undefined }));
+    const count = notifsSnap.size;
+    if (count < 1) continue;
+    const { subject, text, html } = renderDigestEmail({ cadence, count, items });
+    try {
+      const result = await sendEmailInternal({ to: email, from: "no-reply@falsify.app", subject, text, html });
+      functions.logger.info("digest sent", { cadence, uid, email, status: result.status, count });
+    } catch (e: any) {
+      functions.logger.error("digest send failed", { cadence, uid, email, message: e?.message });
+    }
+  }
+}
+
+export const sendDailyDigest = onSchedule({ schedule: "0 8 * * *", timeZone: "Etc/UTC", region: "us-central1", secrets: [SENDGRID_API_KEY] }, async () => {
+  await sendDigestForCadence("daily");
+});
+
+export const sendWeeklyDigest = onSchedule({ schedule: "0 8 * * 1", timeZone: "Etc/UTC", region: "us-central1", secrets: [SENDGRID_API_KEY] }, async () => {
+  await sendDigestForCadence("weekly");
+});
+
+export const sendMonthlyDigest = onSchedule({ schedule: "0 8 1 * *", timeZone: "Etc/UTC", region: "us-central1", secrets: [SENDGRID_API_KEY] }, async () => {
+  await sendDigestForCadence("monthly");
+});
+
 export const aiAnalyze = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION, BOLDNESS_RATING_GUIDE, RELEVANCE_RATING_GUIDE], region: "us-central1", serviceAccount: "functions-runner@falsify-app.iam.gserviceaccount.com" }, async (req: any, res: any) => {
   const origin = (req.headers.origin as string | undefined) || "";
   const allow = /^http:\/\/localhost:(3000|3001)$/.test(origin) || origin === "https://falsify-app.web.app" || origin === "https://falsify-app.firebaseapp.com";
