@@ -7,6 +7,7 @@ import { doc, getDoc, getFirestore, onSnapshot } from "firebase/firestore";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import EditProfileModal from "../EditProfileModal/EditProfileModal";
 import { Toaster } from "react-hot-toast";
+import NotificationsListener from "../NotificationsListener/NotificationsListener";
 
 function useUser() {
   const [uid, setUid] = useState<string | null>(null);
@@ -141,6 +142,7 @@ export default function Header() {
         <EditProfileModal onClose={() => setEditorOpen(false)} onSaved={() => { /* optionally refresh header state */ }} />
       )}
       <Toaster position="top-right" />
+      <NotificationsListener />
     </header>
   );
 }
