@@ -104,6 +104,44 @@
 - dependencies
   - Firebase Auth, Firestore
 
+## notifyOnComment (Cloud Function, Gen2)
+- tag: beta
+- description: When a new comment is written to predictions/{predictionId}/comments, creates a notification under users/{authorId}/notifications.
+
+- interfaces
+  - inputs
+    - Firestore event: onDocumentCreated("predictions/{predictionId}/comments/{commentId}")
+  - outputs
+    - Creates users/{authorId}/notifications/{autoId}: { type: 'comment', predictionId, commentId, fromUserId?, text, createdAt, read: false }
+  - side_effects
+    - Skips self-notifications (when commenter is the author)
+
+- observability
+  - logs: errors with function name and error message
+
+- dependencies
+  - Firebase Admin SDK (Firestore)
+
+## notifyPredictionTerm (Cloud Function, Gen2, Scheduled)
+- tag: beta
+- description: Periodic job that detects predictions whose timebox has reached/passed now and notifies authors once.
+
+- interfaces
+  - inputs
+    - Scheduler: every 5 minutes (Etc/UTC)
+    - Query: predictions where status == 'pending'; filters timebox <= now and termNotified != true in code
+  - outputs
+    - For each eligible prediction, creates users/{authorId}/notifications/{autoId}: { type: 'term', predictionId, createdAt, read: false }
+    - Sets predictions/{id}.termNotified = true and updates updatedAt
+  - side_effects
+    - Batches writes for efficiency
+
+- observability
+  - logs: checked count and notified count; errors with function name and error message
+
+- dependencies
+  - Firebase Admin SDK (Firestore), Cloud Scheduler (via functions v2)
+
 ## Third-party dependencies
 - react-hot-toast
   - version: 2.4.1 (locked)

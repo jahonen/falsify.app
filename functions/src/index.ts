@@ -4,6 +4,8 @@ import { defineSecret } from "firebase-functions/params";
 import { sendEmailInternal } from "./email";
 import { VertexAI } from "@google-cloud/vertexai";
 import * as admin from "firebase-admin";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -326,6 +328,77 @@ export const emailTest = onRequest({ secrets: [SENDGRID_API_KEY], region: "us-ce
     res.status(result.status).send(result.body ?? "sent");
   } catch (e: any) {
     res.status(500).send("send failed");
+  }
+});
+
+// Notifications: comment on your prediction
+export const notifyOnComment = onDocumentCreated("predictions/{predictionId}/comments/{commentId}", async (event) => {
+  try {
+    const snap = event.data;
+    if (!snap) return;
+    const { predictionId } = event.params as { predictionId: string };
+    const data = snap.data() as { userId?: string; text?: string } | undefined;
+    if (!data) return;
+    const db = admin.firestore();
+    const pred = await db.doc(`predictions/${predictionId}`).get();
+    if (!pred.exists) return;
+    const authorId = (pred.data() as any)?.authorId as string | undefined;
+    if (!authorId) return;
+    // Skip self-notifications
+    if (data.userId && data.userId === authorId) return;
+    const text = (data.text || "").slice(0, 200);
+    await db.collection("users").doc(authorId).collection("notifications").add({
+      type: "comment",
+      predictionId,
+      commentId: snap.id,
+      fromUserId: data.userId || null,
+      text,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      read: false
+    });
+  } catch (e) {
+    functions.logger.error("notifyOnComment failed", { message: (e as any)?.message });
+  }
+});
+
+// Notifications: prediction reached term (timebox)
+export const notifyPredictionTerm = onSchedule({ schedule: "every 5 minutes", region: "us-central1", timeZone: "Etc/UTC" }, async () => {
+  try {
+    const db = admin.firestore();
+    const nowIso = new Date().toISOString();
+    // Query pending predictions; filter timebox/termNotified in code to avoid composite indexes
+    const qs = await db
+      .collection("predictions")
+      .where("status", "==", "pending")
+      .limit(500)
+      .get();
+    const batch = db.batch();
+    let notifyCount = 0;
+    for (const doc of qs.docs) {
+      const d = doc.data() as any;
+      const timebox: string = d?.timebox || "";
+      const authorId: string | undefined = d?.authorId;
+      const termNotified: boolean = !!d?.termNotified;
+      if (!timebox || !authorId || termNotified) continue;
+      // timebox stored as ISO string -> lexicographic compare works
+      if (timebox <= nowIso) {
+        const notifRef = db.collection("users").doc(authorId).collection("notifications").doc();
+        batch.set(notifRef, {
+          type: "term",
+          predictionId: doc.id,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          read: false
+        });
+        batch.update(doc.ref, { termNotified: true, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+        notifyCount++;
+      }
+    }
+    if (notifyCount > 0) {
+      await batch.commit();
+    }
+    functions.logger.info("notifyPredictionTerm", { checked: qs.size, notified: notifyCount });
+  } catch (e) {
+    functions.logger.error("notifyPredictionTerm failed", { message: (e as any)?.message });
   }
 });
 

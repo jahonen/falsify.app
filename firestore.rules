@@ -57,6 +57,16 @@ service cloud.firestore {
       allow update, delete: if false; // immutable messages for now
     }
 
+    // Per-user notifications
+    match /users/{userId}/notifications/{notifId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Created by backend only
+      allow create: if false;
+      // Allow user to mark as read; restrict to toggling the 'read' field
+      allow update: if request.auth != null && request.auth.uid == userId && onlyAllowedChanges(["read"]);
+      allow delete: if false;
+    }
+
     match /comments/{commentId} {
       allow read: if true;
       allow create: if request.auth != null && request.auth.token.email_verified == true;
