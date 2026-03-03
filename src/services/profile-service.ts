@@ -5,6 +5,8 @@ export type UserProfile = {
   displayName?: string;
   bio?: string;
   photoURL?: string;
+  followersCount?: number;
+  followingCount?: number;
   createdAt?: any;
   updatedAt?: any;
 };

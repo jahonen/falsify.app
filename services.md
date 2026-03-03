@@ -142,6 +142,50 @@
 - dependencies
   - Firebase Admin SDK (Firestore), Cloud Scheduler (via functions v2)
 
+## follow-service (Client Service)
+- tag: alpha
+- description: Manages the follow graph using subcollections at `users/{uid}/following/{targetUid}`.
+
+- interfaces
+  - inputs
+    - followUser(targetUid: string) => Promise<void>
+    - unfollowUser(targetUid: string) => Promise<void>
+    - isFollowing(targetUid: string) => Promise<boolean>
+    - listFollowers(targetUid: string, max?: number) => Promise<string[]>
+    - listFollowing(uid: string, max?: number) => Promise<string[]>
+  - outputs
+    - As above
+  - side_effects
+    - Writes `users/{uid}/following/{targetUid}` with { followedId, createdAt }
+    - Deletes the same on unfollow
+    - Reads via collection group queries for followers
+
+- observability
+  - client-surface errors through UI toasts; no server logs
+
+- dependencies
+  - Firebase Auth, Firestore
+
+## onFollowCreated / onFollowDeleted (Cloud Functions, Gen2)
+- tag: alpha
+- description: Maintain derived counters on user docs when follow docs are created/deleted.
+
+- interfaces
+  - inputs
+    - onFollowCreated: onDocumentCreated("users/{userId}/following/{targetId}")
+    - onFollowDeleted: onDocumentDeleted("users/{userId}/following/{targetId}")
+  - outputs
+    - Updates `users/{userId}.followingCount` (+/-1)
+    - Updates `users/{targetId}.followersCount` (+/-1)
+  - side_effects
+    - Batches counter updates and sets `updatedAt`
+
+- observability
+  - logs: info on updates, errors on failures
+
+- dependencies
+  - Firebase Admin SDK (Firestore)
+
 ## Third-party dependencies
 - react-hot-toast
   - version: 2.4.1 (locked)

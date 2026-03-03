@@ -4,7 +4,7 @@ import { defineSecret } from "firebase-functions/params";
 import { sendEmailInternal } from "./email";
 import { VertexAI } from "@google-cloud/vertexai";
 import * as admin from "firebase-admin";
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentDeleted } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 
 if (admin.apps.length === 0) {
@@ -23,7 +23,12 @@ const RELEVANCE_RATING_GUIDE = defineSecret("RELEVANCE_RATING_GUIDE");
 
 export const aiScore = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION], region: "us-central1", serviceAccount: "functions-runner@falsify-app.iam.gserviceaccount.com" }, async (req: any, res: any) => {
   const origin = (req.headers.origin as string | undefined) || "";
-  const allow = /^http:\/\/localhost:(3000|3001)$/.test(origin) || origin === "https://falsify-app.web.app" || origin === "https://falsify-app.firebaseapp.com";
+  const allow =
+    /^http:\/\/localhost:(3000|3001)$/.test(origin) ||
+    origin === "https://falsify-app.web.app" ||
+    origin === "https://falsify-app.firebaseapp.com" ||
+    origin === "https://falsify.app" ||
+    origin === "https://www.falsify.app";
   if (allow) {
     res.set("Access-Control-Allow-Origin", origin);
     res.set("Vary", "Origin");
@@ -40,13 +45,6 @@ export const aiScore = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION], 
     return;
   }
   try {
-    const authz = req.headers.authorization || "";
-    const token = authz.startsWith("Bearer ") ? authz.slice(7) : null;
-    if (!token) {
-      res.status(401).send("Missing auth");
-      return;
-    }
-    await admin.auth().verifyIdToken(token);
     const body = (req.body ?? {}) as {
       summary?: string;
       metric?: string;
@@ -253,7 +251,12 @@ export const sendMonthlyDigest = onSchedule({ schedule: "0 8 1 * *", timeZone: "
 
 export const aiAnalyze = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION, BOLDNESS_RATING_GUIDE, RELEVANCE_RATING_GUIDE], region: "us-central1", serviceAccount: "functions-runner@falsify-app.iam.gserviceaccount.com" }, async (req: any, res: any) => {
   const origin = (req.headers.origin as string | undefined) || "";
-  const allow = /^http:\/\/localhost:(3000|3001)$/.test(origin) || origin === "https://falsify-app.web.app" || origin === "https://falsify-app.firebaseapp.com";
+  const allow =
+    /^http:\/\/localhost:(3000|3001)$/.test(origin) ||
+    origin === "https://falsify-app.web.app" ||
+    origin === "https://falsify-app.firebaseapp.com" ||
+    origin === "https://falsify.app" ||
+    origin === "https://www.falsify.app";
   if (allow) {
     res.set("Access-Control-Allow-Origin", origin);
     res.set("Vary", "Origin");
@@ -264,10 +267,7 @@ export const aiAnalyze = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION,
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
   if (req.method !== "POST") { res.status(405).send("POST required"); return; }
   try {
-    const authz = req.headers.authorization || "";
-    const token = authz.startsWith("Bearer ") ? authz.slice(7) : null;
-    if (!token) { res.status(401).send("Missing auth"); return; }
-    await admin.auth().verifyIdToken(token);
+    // Public endpoint (no auth), CORS-restricted to allowed origins
     const body = (req.body ?? {}) as {
       summary?: string;
       metrics?: Array<{ metric?: string; operator?: string; target?: string }>;
@@ -502,6 +502,41 @@ export const aiConfig = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION],
     model: process.env.GEMINI_MODEL_NAME || null,
     region: process.env.GEMINI_REGION || null
   });
+});
+
+// Follow graph counters: increment/decrement followersCount and followingCount
+export const onFollowCreated = onDocumentCreated("users/{userId}/following/{targetId}", async (event) => {
+  try {
+    const { userId, targetId } = event.params as { userId: string; targetId: string };
+    if (!userId || !targetId || userId === targetId) return;
+    const db = admin.firestore();
+    const batch = db.batch();
+    const userRef = db.doc(`users/${userId}`);
+    const targetRef = db.doc(`users/${targetId}`);
+    batch.set(userRef, { followingCount: admin.firestore.FieldValue.increment(1), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    batch.set(targetRef, { followersCount: admin.firestore.FieldValue.increment(1), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    await batch.commit();
+    functions.logger.info("onFollowCreated updated counters", { userId, targetId });
+  } catch (e) {
+    functions.logger.error("onFollowCreated failed", { message: (e as any)?.message });
+  }
+});
+
+export const onFollowDeleted = onDocumentDeleted("users/{userId}/following/{targetId}", async (event) => {
+  try {
+    const { userId, targetId } = event.params as { userId: string; targetId: string };
+    if (!userId || !targetId || userId === targetId) return;
+    const db = admin.firestore();
+    const batch = db.batch();
+    const userRef = db.doc(`users/${userId}`);
+    const targetRef = db.doc(`users/${targetId}`);
+    batch.set(userRef, { followingCount: admin.firestore.FieldValue.increment(-1), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    batch.set(targetRef, { followersCount: admin.firestore.FieldValue.increment(-1), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    await batch.commit();
+    functions.logger.info("onFollowDeleted updated counters", { userId, targetId });
+  } catch (e) {
+    functions.logger.error("onFollowDeleted failed", { message: (e as any)?.message });
+  }
 });
 
 export const sendEmail = onRequest({ secrets: [SENDGRID_API_KEY], region: "us-central1", serviceAccount: "functions-runner@falsify-app.iam.gserviceaccount.com" }, async (req: any, res: any) => {

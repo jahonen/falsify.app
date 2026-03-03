@@ -5,6 +5,7 @@ import EditProfileModal from "../EditProfileModal/EditProfileModal";
 import { getAuth } from "firebase/auth";
 import { listUserPredictions, listUserVotes, listUserComments, type UserPredictionActivity, type UserVoteActivity, type UserCommentActivity } from "../../services/activity-service";
 import UserProfileModal from "../UserProfileModal/UserProfileModal";
+import FollowButton from "../FollowButton/FollowButton";
 
 export default function ProfilePage({ uid }: { uid: string }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -52,14 +53,19 @@ export default function ProfilePage({ uid }: { uid: string }) {
             )}
             <div>
               <h1 className="text-xl font-semibold">{profile.displayName || "Anonymous"}</h1>
-              {profile.bio && <p className="text-sm text-neutral-600">{profile.bio}</p>}
+              <div className="mt-1 flex items-center gap-3 text-sm text-neutral-600">
+                <span><strong className="text-neutral-900">{profile.followersCount ?? 0}</strong> followers</span>
+                <span><strong className="text-neutral-900">{profile.followingCount ?? 0}</strong> following</span>
+              </div>
+              {profile.bio && <p className="text-sm text-neutral-600 mt-1">{profile.bio}</p>}
             </div>
             {self === uid ? (
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-2">
                 <button className="text-sm px-3 py-1 rounded-md border" onClick={() => setEditOpen(true)}>Edit profile</button>
               </div>
             ) : (
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-2">
+                <FollowButton targetUid={uid} />
                 <button className="text-sm px-3 py-1 rounded-md border" onClick={() => setUserModalOpen(true)}>Message</button>
               </div>
             )}

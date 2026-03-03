@@ -1,4 +1,19 @@
 # Components Documentation
+## NotificationsListener
+- tag: beta
+- description: Client-only listener mounted globally to surface backend notifications as toasts for the signed-in user.
+
+- interfaces
+  - inputs
+    - none (derives `uid` from Firebase Auth)
+  - outputs
+    - none (UI side-effects only)
+  - side_effects
+    - Subscribes to `users/{uid}/notifications` where `read == false`, shows a toast per new notification, and marks it `read: true` to prevent duplicate toasts
+
+- observability
+  - relies on existing app Toaster; errors while marking read are ignored (non-blocking)
+
 
 ## ProfilePage
 - tag: alpha
@@ -151,4 +166,21 @@
 
 - observability
   - analytics: user_profile_modal_open/user_profile_modal_message_send
+
+
+## FollowButton
+- tag: alpha
+- description: Toggles follow/unfollow state for a target user using `follow-service`, with toast feedback and analytics events.
+
+- interfaces
+  - inputs
+    - targetUid: string
+    - className?: string
+  - outputs
+    - none
+  - side_effects
+    - Writes/Deletes docs under `users/{selfUid}/following/{targetUid}`
+
+- observability
+  - analytics: follow_user/unfollow_user events when available
 

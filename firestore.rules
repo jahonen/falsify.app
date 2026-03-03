@@ -8,6 +8,22 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update, delete: if request.auth != null && request.auth.uid == userId;
+      
+      // Follow graph: users/{userId}/following/{targetId}
+      match /following/{targetId} {
+        // Publicly readable follower/following lists
+        allow read: if true;
+        // Create only by the owner of the subcollection; prevent self-follow and restrict fields
+        allow create: if request.auth != null
+          && request.auth.uid == userId
+          && targetId != userId
+          && request.resource.data.followedId == targetId
+          && request.resource.data.keys().hasOnly(["followedId", "createdAt"]);
+        // Unfollow only by the owner
+        allow delete: if request.auth != null && request.auth.uid == userId;
+        // No updates to follow docs
+        allow update: if false;
+      }
     }
 
     match /predictions/{predictionId} {
