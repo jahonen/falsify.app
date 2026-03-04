@@ -6,19 +6,16 @@ import { castVote } from "../../services/vote-service";
 import { doc, getDoc, getFirestore } from "firebase/firestore";
 import UserProfileModal from "../UserProfileModal/UserProfileModal";
 import { toast } from "react-hot-toast";
+import { Playfair_Display, JetBrains_Mono } from "next/font/google";
+
+const playfair = Playfair_Display({ subsets: ["latin"], weight: ["700", "900"] });
+const jetmono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"] });
 
 export interface PredictionCardProps {
   prediction: Prediction;
 }
 
-function statusColor(status: Prediction["status"]): string {
-  if (status === "pending") return "bg-statusPending";
-  if (status === "resolved") return "bg-statusResolved";
-  return "bg-statusDisputed";
-}
-
 export default function PredictionCard({ prediction }: PredictionCardProps) {
-  const statusCls = statusColor(prediction.status);
   const [authorName, setAuthorName] = useState<string | null>(null);
   const [authorPhoto, setAuthorPhoto] = useState<string | null>(null);
   const [voteCounts, setVoteCounts] = useState({
@@ -76,13 +73,13 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
       <div className="p-4 grid gap-3">
       <header className="flex items-start gap-3">
         <div className="grid gap-3">
-          <h3 className="text-2xl md:text-3xl font-extrabold leading-tight tracking-tight font-serif text-neutral-900">{prediction.summary}</h3>
+          <h3 className={`${playfair.className} text-2xl md:text-3xl font-extrabold leading-tight tracking-tight text-neutral-900`}>{prediction.summary}</h3>
           {prediction.rationale ? (
             <p className="text-[1.1rem] leading-7 text-neutral-600 italic">{prediction.rationale}</p>
           ) : null}
           <div className="mt-4 grid gap-1">
-            <div className="text-[0.6rem] uppercase tracking-[0.14em] text-neutral-400">Resolves when</div>
-            <div className="inline-block text-[0.9rem] font-mono font-medium text-neutral-700 tracking-wide bg-neutral-50 border border-neutral-200 rounded-md px-3 py-2">
+            <div className={`${jetmono.className} text-[0.6rem] uppercase tracking-[0.14em] text-neutral-400`}>Resolves when</div>
+            <div className={`${jetmono.className} inline-block text-[0.9rem] font-medium text-neutral-700 tracking-wide bg-neutral-50 border border-neutral-200 rounded-md px-3 py-2`}>
               {Array.isArray(prediction.metrics) && prediction.metrics.length > 0 ? (
                 <>
                   {prediction.metrics.map((m, i) => (
@@ -98,7 +95,6 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
               )}
             </div>
           </div>
-          {/* Author shown in footer to reduce header noise */}
         </div>
       </header>
 
@@ -106,12 +102,12 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
         <div className={`${styles.timebarTrack} flex-1`}>
           <div className={styles.timebarFill} style={{ width: `${timePct}%` }} />
         </div>
-        <span className="text-[0.6rem] text-neutral-400 tracking-[0.12em] whitespace-nowrap">{daysLeft != null ? `${daysLeft} days left` : ""}</span>
+        <span className={`${jetmono.className} text-[0.6rem] text-neutral-400 tracking-[0.12em] whitespace-nowrap`}>{daysLeft != null ? `${daysLeft} days left` : ""}</span>
       </div>
 
       <div className={styles.divider} />
 
-      <div className="mt-2 text-[0.55rem] uppercase tracking-[0.14em] text-neutral-400 text-center">Your forecast</div>
+      <div className={`${jetmono.className} mt-2 text-[0.55rem] uppercase tracking-[0.14em] text-neutral-400 text-center`}>Your forecast</div>
 
       <div className="flex items-center gap-2 flex-wrap">
         <VoteButton
@@ -169,7 +165,7 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
           }}
         />
       </div>
-      <button type="button" className="w-full mt-1 px-3 py-2 rounded border border-neutral-900 text-neutral-900 text-[0.62rem] font-medium tracking-[0.12em] uppercase hover:bg-neutral-900 hover:text-white transition-colors">
+      <button type="button" className={`${jetmono.className} w-full mt-1 px-3 py-2 rounded border border-neutral-900 text-neutral-900 text-[0.62rem] font-medium tracking-[0.12em] uppercase hover:bg-neutral-900 hover:text-white transition-colors`}>
         Join the discussion →
       </button>
 
