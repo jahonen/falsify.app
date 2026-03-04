@@ -1,5 +1,6 @@
 .vote-button {
-  @apply inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-white transition-transform duration-200 ease-in-out;
+  @apply inline-flex items-center justify-center gap-2 px-3 py-2 rounded text-[0.62rem] font-medium transition-transform duration-200 ease-in-out uppercase tracking-wider font-mono border;
+  background: #ffffff;
 }
 .vote-button:disabled {
   @apply opacity-60 cursor-not-allowed;
@@ -8,14 +9,19 @@
   transform: scale(1.02);
 }
 .vote-button.calledIt {
-  background: #7ED321;
-}
-.vote-button.botched {
-  background: #F44336;
+  background: #f0fdf4; /* green-50 */
+  border-color: #86efac; /* green-300 */
+  color: #15803d; /* green-700 */
 }
 .vote-button.fence {
-  background: #FFB74D;
-  color: #333333;
+  background: #fafafa; /* neutral-50 */
+  border-color: #d1d5db; /* gray-300 */
+  color: #374151; /* gray-700 */
+}
+.vote-button.botched {
+  background: #fef2f2; /* red-50 */
+  border-color: #fca5a5; /* red-300 */
+  color: #b91c1c; /* red-700 */
 }
 .vote-button .label {
   @apply leading-none;

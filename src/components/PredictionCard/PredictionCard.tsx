@@ -1,5 +1,4 @@
 import styles from "./PredictionCard.module.scss";
-import AIBadge from "../AIBadge/AIBadge";
 import VoteButton from "../VoteButton/VoteButton";
 import type { Prediction } from "../../types/prediction";
 import { useEffect, useState } from "react";
@@ -75,26 +74,15 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
     <article className={`${styles.card} bg-white rounded-lg shadow-subtle p-0`}>
       <div className={styles.topAccent} />
       <div className="p-4 grid gap-3">
-      <header className="flex items-start justify-between gap-3">
-        <div className="grid gap-1">
-          <h3 className="text-base font-semibold">{prediction.summary}</h3>
-          {Array.isArray(prediction.metrics) && prediction.metrics.length > 0 ? (
-            <p className="text-sm text-neutral-600">
-              {prediction.metrics.map((m, i) => (
-                <span key={i}>
-                  {m.metric} {m.operator} {m.target}{i < prediction.metrics!.length - 1 ? " • " : ""}
-                </span>
-              ))}
-            </p>
-          ) : (
-            <p className="text-sm text-neutral-600">{prediction.metric} • Ref: {prediction.referenceValue}</p>
-          )}
+      <header className="flex items-start gap-3">
+        <div className="grid gap-3">
+          <h3 className="text-2xl md:text-3xl font-extrabold leading-tight tracking-tight font-serif text-neutral-900">{prediction.summary}</h3>
           {prediction.rationale ? (
-            <p className="text-sm text-neutral-600 italic">{prediction.rationale}</p>
+            <p className="text-[1.1rem] leading-7 text-neutral-600 italic">{prediction.rationale}</p>
           ) : null}
-          <div className="mt-1 grid gap-1">
+          <div className="mt-4 grid gap-1">
             <div className="text-[0.6rem] uppercase tracking-[0.14em] text-neutral-400">Resolves when</div>
-            <div className="inline-block text-[0.8rem] font-medium text-neutral-700 tracking-wide bg-neutral-50 border border-neutral-200 rounded px-3 py-2">
+            <div className="inline-block text-[0.9rem] font-mono font-medium text-neutral-700 tracking-wide bg-neutral-50 border border-neutral-200 rounded-md px-3 py-2">
               {Array.isArray(prediction.metrics) && prediction.metrics.length > 0 ? (
                 <>
                   {prediction.metrics.map((m, i) => (
@@ -110,39 +98,20 @@ export default function PredictionCard({ prediction }: PredictionCardProps) {
               )}
             </div>
           </div>
-          <button type="button" className="flex items-center gap-2 mt-1 group" onClick={() => setProfileOpen(true)}>
-            {authorPhoto ? (
-              <img src={authorPhoto} alt={authorName ?? ""} className="w-6 h-6 rounded-full object-cover" />
-            ) : (
-              <div className="w-6 h-6 rounded-full bg-neutral-300 text-neutral-700 grid place-items-center text-xs">
-                {(authorName?.trim()?.[0] ?? "?").toUpperCase()}
-              </div>
-            )}
-            <span className="text-sm text-neutral-700 group-hover:underline">{authorName || "Unknown"}</span>
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          <AIBadge score={prediction.aiScore?.plausibility ?? 5} />
-          {prediction.aiAnalysis ? (
-            <div className="flex items-center gap-1 text-xs text-neutral-700">
-              <span className="px-1.5 py-0.5 rounded bg-neutral-100 border border-neutral-200">B {prediction.aiAnalysis.boldness}</span>
-              <span className="px-1.5 py-0.5 rounded bg-neutral-100 border border-neutral-200">R {prediction.aiAnalysis.relevance}</span>
-            </div>
-          ) : null}
-          <span className={`px-2 py-1 rounded-full text-xs text-white ${statusCls}`}>{prediction.status}</span>
+          {/* Author shown in footer to reduce header noise */}
         </div>
       </header>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 mt-4">
         <div className={`${styles.timebarTrack} flex-1`}>
           <div className={styles.timebarFill} style={{ width: `${timePct}%` }} />
         </div>
-        <span className="text-[0.6rem] text-neutral-400 tracking-[0.08em] whitespace-nowrap">{daysLeft != null ? `${daysLeft} days left` : ""}</span>
+        <span className="text-[0.6rem] text-neutral-400 tracking-[0.12em] whitespace-nowrap">{daysLeft != null ? `${daysLeft} days left` : ""}</span>
       </div>
 
       <div className={styles.divider} />
 
-      <div className="text-[0.55rem] uppercase tracking-[0.14em] text-neutral-400 text-center">Your forecast</div>
+      <div className="mt-2 text-[0.55rem] uppercase tracking-[0.14em] text-neutral-400 text-center">Your forecast</div>
 
       <div className="flex items-center gap-2 flex-wrap">
         <VoteButton
