@@ -122,6 +122,25 @@
 - dependencies
   - Firebase Admin SDK (Firestore)
 
+## updateReputationOnVoteWrite (Cloud Function, Gen2)
+- tag: alpha
+- description: Adjusts the author's `users/{authorId}.reputation` when a vote on their prediction is created or updated.
+
+- interfaces
+  - inputs
+    - Firestore trigger: onDocumentWritten("predictions/{predictionId}/votes/{voterId}")
+  - outputs
+    - Increments `users/{authorId}.reputation` by +1 for `calledIt`, -1 for `botched`, 0 for `fence` based on delta between before/after
+  - side_effects
+    - Skips self-votes (author == voter)
+    - Sets `updatedAt` on user doc
+
+- observability
+  - logs: info on deltas applied; errors with context on failure
+
+- dependencies
+  - Firebase Admin SDK (Firestore)
+
 ## notifyPredictionTerm (Cloud Function, Gen2, Scheduled)
 - tag: beta
 - description: Periodic job that detects predictions whose timebox has reached/passed now and notifies authors once.

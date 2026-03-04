@@ -56,6 +56,7 @@ export default function ProfilePage({ uid }: { uid: string }) {
               <div className="mt-1 flex items-center gap-3 text-sm text-neutral-600">
                 <span><strong className="text-neutral-900">{profile.followersCount ?? 0}</strong> followers</span>
                 <span><strong className="text-neutral-900">{profile.followingCount ?? 0}</strong> following</span>
+                <span><strong className="text-neutral-900">{profile.reputation ?? 0}</strong> reputation</span>
               </div>
               {profile.bio && <p className="text-sm text-neutral-600 mt-1">{profile.bio}</p>}
             </div>

@@ -7,6 +7,7 @@ export type UserProfile = {
   photoURL?: string;
   followersCount?: number;
   followingCount?: number;
+  reputation?: number;
   createdAt?: any;
   updatedAt?: any;
 };

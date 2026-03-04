@@ -4,7 +4,7 @@ import { defineSecret } from "firebase-functions/params";
 import { sendEmailInternal } from "./email";
 import { VertexAI } from "@google-cloud/vertexai";
 import * as admin from "firebase-admin";
-import { onDocumentCreated, onDocumentDeleted } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentDeleted, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 
 if (admin.apps.length === 0) {
@@ -502,6 +502,32 @@ export const aiConfig = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION],
     model: process.env.GEMINI_MODEL_NAME || null,
     region: process.env.GEMINI_REGION || null
   });
+});
+
+// Reputation v1: adjust author reputation on vote create/update
+export const updateReputationOnVoteWrite = onDocumentWritten("predictions/{predictionId}/votes/{voterId}", async (event) => {
+  try {
+    const before = event.data?.before?.data() as any | undefined;
+    const after = event.data?.after?.data() as any | undefined;
+    const prevType = before?.type as ("calledIt" | "botched" | "fence" | string | undefined);
+    const nextType = after?.type as ("calledIt" | "botched" | "fence" | string | undefined);
+    const score = (t?: string) => (t === "calledIt" ? 1 : t === "botched" ? -1 : 0);
+    const delta = score(nextType) - score(prevType);
+    if (!delta) return;
+    const { predictionId, voterId } = event.params as { predictionId: string; voterId: string };
+    const db = admin.firestore();
+    const predSnap = await db.doc(`predictions/${predictionId}`).get();
+    if (!predSnap.exists) return;
+    const authorId = (predSnap.data() as any)?.authorId as string | undefined;
+    if (!authorId || authorId === voterId) return; // skip self-votes and missing author
+    await db.doc(`users/${authorId}`).set({
+      reputation: admin.firestore.FieldValue.increment(delta),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    functions.logger.info("updateReputationOnVoteWrite", { authorId, voterId, predictionId, delta, prevType, nextType });
+  } catch (e) {
+    functions.logger.error("updateReputationOnVoteWrite failed", { message: (e as any)?.message });
+  }
 });
 
 // Follow graph counters: increment/decrement followersCount and followingCount
