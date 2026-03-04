@@ -249,6 +249,82 @@ export const sendMonthlyDigest = onSchedule({ schedule: "0 8 1 * *", timeZone: "
   await sendDigestForCadence("monthly");
 });
 
+// ----- Leaderboards v1: daily/weekly/monthly/all-time snapshots -----
+function formatDateUTC(d: Date) {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return { y, m, day, ymd: `${y}-${m}-${day}` };
+}
+
+function getWeekKeyUTC(d: Date) {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = date.getUTCDay();
+  const diff = (day === 0 ? -6 : 1) - day; // move to Monday
+  const monday = new Date(date);
+  monday.setUTCDate(date.getUTCDate() + diff);
+  const year = monday.getUTCFullYear();
+  const oneJan = new Date(Date.UTC(year, 0, 1));
+  const week = Math.ceil((((monday.getTime() - oneJan.getTime()) / 86400000) + oneJan.getUTCDay() + 1) / 7);
+  return { year, week, key: `${year}-W${String(week).padStart(2, "0")}` };
+}
+
+async function computeAndWriteLeaderboards() {
+  const db = admin.firestore();
+  const now = new Date();
+  const { ymd } = formatDateUTC(now);
+  const { year, week, key: weekKey } = getWeekKeyUTC(now);
+  const monthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+
+  const usersSnap = await db.collection("users").orderBy("reputation", "desc").limit(100).get();
+  const top = usersSnap.docs.map((d, i) => {
+    const u = (d.data() as any) || {};
+    return {
+      uid: d.id,
+      rank: i + 1,
+      score: Number(u.reputation || 0),
+      displayName: u.displayName || null,
+      avatarUrl: u.photoURL || null,
+      followersCount: Number(u.followersCount || 0)
+    };
+  });
+
+  const base = {
+    generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    top,
+    totalUsers: usersSnap.size
+  } as any;
+
+  const batch = db.batch();
+  // Daily
+  const dailyDoc = db.doc(`leaderboards/daily-${ymd}`);
+  batch.set(dailyDoc, { ...base, period: "daily", periodKey: ymd });
+  batch.set(db.doc("leaderboards/daily-latest"), { ...base, period: "daily", periodKey: ymd });
+  // Weekly
+  const weeklyDoc = db.doc(`leaderboards/weekly-${weekKey}`);
+  batch.set(weeklyDoc, { ...base, period: "weekly", periodKey: weekKey, year, week });
+  batch.set(db.doc("leaderboards/weekly-latest"), { ...base, period: "weekly", periodKey: weekKey, year, week });
+  // Monthly
+  const monthlyDoc = db.doc(`leaderboards/monthly-${monthKey}`);
+  batch.set(monthlyDoc, { ...base, period: "monthly", periodKey: monthKey });
+  batch.set(db.doc("leaderboards/monthly-latest"), { ...base, period: "monthly", periodKey: monthKey });
+  // All-time
+  const alltimeDoc = db.doc("leaderboards/all-time");
+  batch.set(alltimeDoc, { ...base, period: "all-time", periodKey: "all-time" });
+
+  await batch.commit();
+  functions.logger.info("leaderboards computed", { top: top.length, daily: dailyDoc.id, weekly: weeklyDoc.id, monthly: monthlyDoc.id });
+}
+
+// Run daily at 00:10 UTC to refresh all periods
+export const computeLeaderboardsDaily = onSchedule({ schedule: "10 0 * * *", timeZone: "Etc/UTC", region: "us-central1" }, async () => {
+  try {
+    await computeAndWriteLeaderboards();
+  } catch (e) {
+    functions.logger.error("computeLeaderboardsDaily failed", { message: (e as any)?.message });
+  }
+});
+
 export const aiAnalyze = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION, BOLDNESS_RATING_GUIDE, RELEVANCE_RATING_GUIDE], region: "us-central1", serviceAccount: "functions-runner@falsify-app.iam.gserviceaccount.com" }, async (req: any, res: any) => {
   const origin = (req.headers.origin as string | undefined) || "";
   const allow =
