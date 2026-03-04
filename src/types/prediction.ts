@@ -27,6 +27,7 @@ export interface AIAnalysis {
   boldness: number;
   relevance: number;
   notes?: string[];
+  fallbackUsed?: boolean;
 }
 
 export interface Prediction {
