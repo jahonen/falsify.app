@@ -210,6 +210,11 @@
   - version: 2.4.1 (locked)
   - usage: client-side toasts for user feedback (votes, comments, DMs, profile saves)
 
+- recharts
+  - version: 2.12.7 (locked)
+  - usage: client-only chart rendering for Prediction details' Forecast Convergence (`ConvergenceChart`).
+  - notes: imported in a client component only; no server-side usage.
+
 
 ## activity-service (Client Service)
 - tag: alpha
