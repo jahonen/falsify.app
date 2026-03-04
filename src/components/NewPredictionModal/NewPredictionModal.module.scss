@@ -1,5 +1,5 @@
-.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 1rem; }
-.modal { width: 100%; max-width: 40rem; background: #fff; border: 1px solid #E0E0E0; border-radius: 0.75rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); padding: 1rem; position: relative; display: grid; gap: 0.75rem; }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 1rem; overscroll-behavior: none; }
+.modal { width: 100%; max-width: 40rem; max-height: calc(100dvh - 2rem); overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: #fff; border: 1px solid #E0E0E0; border-radius: 0.75rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); padding: 1rem; position: relative; display: grid; gap: 0.75rem; }
 .close { position: absolute; top: 0.5rem; right: 0.5rem; border: 1px solid #E0E0E0; background: #fff; border-radius: 0.5rem; width: 2rem; height: 2rem; display: grid; place-items: center; color: #666; }
 .title { font-weight: 600; font-size: 1.125rem; }
 .subtitle { font-size: 0.9rem; color: #666; }
@@ -14,4 +14,10 @@
 .actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 .primary { background: #333; color: #fff; border-radius: 0.5rem; padding: 0.5rem 0.75rem; }
 .secondary { background: #fff; border: 1px solid #E0E0E0; border-radius: 0.5rem; padding: 0.5rem 0.75rem; }
-@media (max-width: 640px) { .row2 { grid-template-columns: 1fr; } .row3 { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+  .overlay { padding: 0; align-items: stretch; justify-content: stretch; }
+  .modal { height: 100dvh; max-height: 100dvh; width: 100vw; max-width: 100vw; border-radius: 0; border-left: 0; border-right: 0; box-shadow: none; padding-bottom: 0.5rem; }
+  .row2 { grid-template-columns: 1fr; }
+  .row3 { grid-template-columns: 1fr; }
+  .actions { position: sticky; bottom: 0; background: #fff; padding-top: 0.75rem; margin-top: 0.25rem; border-top: 1px solid #E0E0E0; }
+}
