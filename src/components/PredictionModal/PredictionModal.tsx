@@ -7,6 +7,7 @@ import { toast } from "react-hot-toast";
 import { collection, doc, getDoc, getFirestore, onSnapshot, orderBy, query, Timestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import UserProfileModal from "../UserProfileModal/UserProfileModal";
+import ShareModal from "../ShareModal/ShareModal";
 import { Playfair_Display, JetBrains_Mono } from "next/font/google";
 import ConvergenceChart from "../ConvergenceChart/ConvergenceChart";
 import VoteButton, { type VoteVariant } from "../VoteButton/VoteButton";
@@ -35,6 +36,7 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
   const [profileUid, setProfileUid] = useState<string | null>(null);
   const [userVote, setUserVote] = useState<VoteVariant | null>(null);
   const [voting, setVoting] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -171,10 +173,7 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
               {prediction.taxonomy?.domain && <span className={`${jetmono.className} uppercase tracking-[0.09em]`}>{prediction.taxonomy.domain}</span>}
               {prediction.taxonomy?.subcategory && <><span className="mx-1 text-neutral-300">›</span><span className={`${jetmono.className} uppercase tracking-[0.09em]`}>{prediction.taxonomy.subcategory}</span></>}
               {prediction.taxonomy?.topic && <><span className="mx-1 text-neutral-300">›</span><span className={`${jetmono.className} uppercase tracking-[0.09em]`}>{prediction.taxonomy.topic}</span></>}
-              {profileUid && (
-        <UserProfileModal uid={profileUid} open={true} onClose={() => setProfileUid(null)} />
-      )}
-    </div>
+            </div>
             <div className="flex items-center gap-2">
               <button type="button" className="flex items-center gap-2 group" onClick={() => setProfileUid(prediction.authorId)}>
                 {authorPhoto ? (
@@ -185,6 +184,17 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
                   </div>
                 )}
                 <span className="text-sm text-neutral-700 group-hover:underline">{authorName || "Unknown"}</span>
+              </button>
+              <button
+                className="text-sm px-2 py-1 rounded border border-neutralBorder hover:bg-neutralBg"
+                aria-label="Share"
+                onClick={() => setShareOpen(true)}
+                title="Share"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className="text-neutral-700">
+                  <path d="M13 5.828V16a1 1 0 1 1-2 0V5.828L7.414 9.414a1 1 0 0 1-1.414-1.414l5.293-5.293a1 1 0 0 1 1.414 0l5.293 5.293a1 1 0 1 1-1.414 1.414L13 5.828z"></path>
+                  <path d="M5 14a1 1 0 0 1 1 1v3h12v-3a1 1 0 1 1 2 0v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z"></path>
+                </svg>
               </button>
               <button className="text-sm px-2 py-1 rounded border border-neutralBorder hover:bg-neutralBg" onClick={onClose} aria-label="Close">✕</button>
             </div>
@@ -370,6 +380,10 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
               </div>
             </details>
           </div>
+          {profileUid && (
+            <UserProfileModal uid={profileUid} open={true} onClose={() => setProfileUid(null)} />
+          )}
+          <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} prediction={prediction} />
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { collection, getDocs, getFirestore, limit as fsLimit, orderBy, query, startAfter, where, DocumentData, QueryConstraint, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
+import { collection, getDocs, getFirestore, limit as fsLimit, orderBy, query, startAfter, where, DocumentData, QueryConstraint, addDoc, serverTimestamp, Timestamp, doc, getDoc } from "firebase/firestore";
 import type { Prediction, Metric } from "../types/prediction";
 import type { AIScore } from "../types/prediction";
 import type { AIAnalysis } from "../types/prediction";
@@ -102,4 +102,35 @@ export async function createPrediction(input: CreatePredictionInput): Promise<st
     updatedAt: serverTimestamp()
   });
   return docRef.id;
+}
+
+// Fetch a single prediction by ID for deep links (/p/[id])
+export async function getPredictionById(id: string): Promise<Prediction | null> {
+  try {
+    const db = getFirestore();
+    const ref = doc(db, "predictions", id);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return null;
+    const data = snap.data() as any;
+    return {
+      id,
+      authorId: data.authorId ?? "",
+      summary: data.summary ?? "",
+      metric: data.metric ?? "",
+      referenceValue: data.referenceValue ?? "",
+      metrics: (Array.isArray(data.metrics) ? data.metrics : undefined),
+      rationale: data.rationale ?? "",
+      timebox: (data.timebox?.toDate?.()?.toISOString?.() ?? data.timebox ?? new Date().toISOString()) as string,
+      taxonomy: data.taxonomy ?? { domain: "", subcategory: "", topic: "" },
+      status: data.status ?? "pending",
+      aiScore: data.aiScore ?? { plausibility: 5, vaguenessFlag: false, notes: [] },
+      aiAnalysis: data.aiAnalysis ?? undefined,
+      humanVotes: data.humanVotes ?? { outcome: { calledIt: 0, botched: 0, fence: 0 }, quality: { high: 0, low: 0 } },
+      comments: data.comments ?? [],
+      createdAt: (data.createdAt?.toDate?.() ?? new Date()) as Date,
+      resolvedAt: data.resolvedAt ? (data.resolvedAt.toDate?.() ?? undefined) : undefined
+    } as Prediction;
+  } catch {
+    return null;
+  }
 }
