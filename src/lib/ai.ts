@@ -41,7 +41,7 @@ export type AiAnalyzeInput = {
   taxonomy?: { domain?: string; subcategory?: string; topic?: string };
 };
 
-export type AIAnalysis = { boldness: number; relevance: number; notes?: string[] };
+export type AIAnalysis = { boldness: number; relevance: number; notes?: string[]; fallbackUsed?: boolean };
 
 export async function aiAnalyze(input: AiAnalyzeInput): Promise<AIAnalysis> {
   const auth = getAuth();
