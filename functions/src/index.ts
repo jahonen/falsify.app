@@ -525,10 +525,10 @@ export const notifyOnComment = onDocumentCreated("predictions/{predictionId}/com
 });
 
 // Notifications: prediction reached term (timebox)
-export const notifyPredictionTerm = onSchedule({ schedule: "every 5 minutes", region: "us-central1", timeZone: "Etc/UTC" }, async () => {
+export const notifyPredictionTerm = onSchedule({ schedule: "every 5 minutes", region: "us-central1", timeZone: "Etc/UTC", secrets: [SENDGRID_API_KEY] }, async () => {
   try {
     const db = admin.firestore();
-    const nowIso = new Date().toISOString();
+    const now = new Date();
     // Query pending predictions; filter timebox/termNotified in code to avoid composite indexes
     const qs = await db
       .collection("predictions")
@@ -537,14 +537,22 @@ export const notifyPredictionTerm = onSchedule({ schedule: "every 5 minutes", re
       .get();
     const batch = db.batch();
     let notifyCount = 0;
+    const emailQueue: Array<{ authorId: string; predictionId: string }> = [];
     for (const doc of qs.docs) {
       const d = doc.data() as any;
-      const timebox: string = d?.timebox || "";
+      const tb = d?.timebox;
+      let timeboxDate: Date | null = null;
+      if (tb && typeof (tb as any)?.toDate === "function") {
+        try { timeboxDate = (tb as any).toDate(); } catch { timeboxDate = null; }
+      } else if (typeof tb === "string") {
+        const dt = new Date(tb);
+        if (!isNaN(dt.getTime())) timeboxDate = dt; else timeboxDate = null;
+      }
       const authorId: string | undefined = d?.authorId;
       const termNotified: boolean = !!d?.termNotified;
-      if (!timebox || !authorId || termNotified) continue;
-      // timebox stored as ISO string -> lexicographic compare works
-      if (timebox <= nowIso) {
+      if (!timeboxDate || !authorId || termNotified) continue;
+      // timebox reached
+      if (timeboxDate.getTime() <= now.getTime()) {
         const notifRef = db.collection("users").doc(authorId).collection("notifications").doc();
         batch.set(notifRef, {
           type: "term",
@@ -553,13 +561,56 @@ export const notifyPredictionTerm = onSchedule({ schedule: "every 5 minutes", re
           read: false
         });
         batch.update(doc.ref, { termNotified: true, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+        emailQueue.push({ authorId, predictionId: doc.id });
         notifyCount++;
       }
     }
     if (notifyCount > 0) {
       await batch.commit();
     }
-    functions.logger.info("notifyPredictionTerm", { checked: qs.size, notified: notifyCount });
+    // Send immediate emails to authors for reached-term predictions (best-effort)
+    if (emailQueue.length > 0) {
+      const baseUrl = process.env.PUBLIC_SITE_URL || "https://falsify.app";
+      for (const item of emailQueue) {
+        try {
+          const userSnap = await db.collection("users").doc(item.authorId).get();
+          const userData = (userSnap.data() as any) || {};
+          const consent = (userData?.consents || {}) as any;
+          // Optional consent gate: if user has explicitly disabled term emails, skip
+          if (consent && consent.termImmediateEmail === false) continue;
+          let email: string | null = userData.email || null;
+          if (!email) {
+            try { email = (await admin.auth().getUser(item.authorId)).email || null; } catch { email = null; }
+          }
+          if (!email) continue;
+          const predictionUrl = `${baseUrl}/p/${encodeURIComponent(item.predictionId)}`;
+          const subject = "Your prediction reached its deadline";
+          const text = [
+            "Your prediction on Falsify has reached its deadline.",
+            "",
+            `View it: ${predictionUrl}`
+          ].join("\n");
+          const html = `<!DOCTYPE html><html><head><meta charSet="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /></head><body style="background:#f6f7fb;margin:0;padding:24px;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial,'Noto Sans'">
+            <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(15,23,42,.08);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #e5e7eb;background:#0f172a;color:#fff">
+                <strong>Falsify</strong>
+              </div>
+              <div style="padding:20px">
+                <h1 style="font-size:18px;margin:0 0 12px 0;color:#111827">Your prediction reached its deadline</h1>
+                <p style="margin:8px 0 16px 0;color:#374151">Review the outcome and finalize a verdict.</p>
+                <p style="margin:0 0 16px 0"><a href="${predictionUrl}" style="display:inline-block;background:#111827;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px">Open prediction</a></p>
+                <p style="margin:0;color:#6b7280">If the button doesn't work, copy/paste this link:<br/><a href="${predictionUrl}">${predictionUrl}</a></p>
+              </div>
+            </div>
+          </body></html>`;
+          const result = await sendEmailInternal({ to: email, from: "no-reply@falsify.app", subject, text, html });
+          functions.logger.info("term email sent", { authorId: item.authorId, predictionId: item.predictionId, status: result.status });
+        } catch (e: any) {
+          functions.logger.error("term email failed", { authorId: item.authorId, predictionId: item.predictionId, message: e?.message });
+        }
+      }
+    }
+    functions.logger.info("notifyPredictionTerm", { checked: qs.size, notified: notifyCount, emailed: emailQueue.length });
   } catch (e) {
     functions.logger.error("notifyPredictionTerm failed", { message: (e as any)?.message });
   }
