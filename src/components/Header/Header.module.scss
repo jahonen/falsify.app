@@ -109,3 +109,19 @@
 .actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.25rem; }
 .primary { background: #333; color: #fff; border-radius: 0.5rem; padding: 0.5rem 0.75rem; }
 .secondary { background: #fff; border: 1px solid #E0E0E0; border-radius: 0.5rem; padding: 0.5rem 0.75rem; }
+
+@media (max-width: 640px) {
+  .inner {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .searchWrap {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+  .userName { display: none; }
+  .userButton { padding: 0.25rem; }
+  .searchInput { padding: 0.4rem 0.6rem; }
+}

@@ -168,13 +168,14 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
       <div className="absolute inset-0 flex items-stretch md:items-start justify-center overflow-auto p-0 md:p-4" onClick={(e) => e.stopPropagation()}>
         <div className="w-full md:max-w-3xl bg-white md:rounded-lg md:shadow-xl border border-neutralBorder md:mt-10 h-full md:h-auto md:overflow-hidden overflow-y-auto">
           <div className="h-0.5 bg-neutral-900" />
-          <div className="px-5 py-4 border-b border-neutralBorder flex items-center justify-between">
-            <div className="flex items-center gap-2 text-[11px] text-neutral-500">
+          <div className="px-5 py-4 border-b border-neutralBorder">
+            <div className="flex items-center justify-between">
+              <div className="hidden md:flex items-center gap-2 text-[11px] text-neutral-500">
               {prediction.taxonomy?.domain && <span className={`${jetmono.className} uppercase tracking-[0.09em]`}>{prediction.taxonomy.domain}</span>}
               {prediction.taxonomy?.subcategory && <><span className="mx-1 text-neutral-300">›</span><span className={`${jetmono.className} uppercase tracking-[0.09em]`}>{prediction.taxonomy.subcategory}</span></>}
               {prediction.taxonomy?.topic && <><span className="mx-1 text-neutral-300">›</span><span className={`${jetmono.className} uppercase tracking-[0.09em]`}>{prediction.taxonomy.topic}</span></>}
-            </div>
-            <div className="flex items-center gap-2">
+              </div>
+              <div className="flex items-center gap-2">
               <button type="button" className="flex items-center gap-2 group" onClick={() => setProfileUid(prediction.authorId)}>
                 {authorPhoto ? (
                   <img src={authorPhoto} alt={authorName ?? ""} className="w-6 h-6 rounded-full object-cover border" />
@@ -197,6 +198,12 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
                 </svg>
               </button>
               <button className="text-sm px-2 py-1 rounded border border-neutralBorder hover:bg-neutralBg" onClick={onClose} aria-label="Close">✕</button>
+              </div>
+            </div>
+            <div className="mt-2 md:hidden text-[11px] text-neutral-500 flex items-center gap-2 flex-wrap">
+              {prediction.taxonomy?.domain && <span className={`${jetmono.className} uppercase tracking-[0.09em]`}>{prediction.taxonomy.domain}</span>}
+              {prediction.taxonomy?.subcategory && <><span className="mx-1 text-neutral-300">›</span><span className={`${jetmono.className} uppercase tracking-[0.09em]`}>{prediction.taxonomy.subcategory}</span></>}
+              {prediction.taxonomy?.topic && <><span className="mx-1 text-neutral-300">›</span><span className={`${jetmono.className} uppercase tracking-[0.09em]`}>{prediction.taxonomy.topic}</span></>}
             </div>
           </div>
 
