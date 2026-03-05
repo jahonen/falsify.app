@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import styles from "./NewPredictionModal.module.scss";
 import { getAuth } from "firebase/auth";
 import CategorySelect from "../CategorySelect/CategorySelect";
@@ -34,6 +34,7 @@ export default function NewPredictionModal({ onClose, onCreated, initialTaxonomy
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [lastSig, setLastSig] = useState<string | null>(null);
+  const metricInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const valid = useMemo(() => {
     if (!summary.trim() || summary.length > 140) return false;
@@ -119,9 +120,15 @@ export default function NewPredictionModal({ onClose, onCreated, initialTaxonomy
           <div key={idx} className={styles.row3}>
             <div className={styles.group}>
               <label className={styles.label}>Metric {metrics.length > 1 ? `#${idx + 1}` : ""}</label>
-              <input className={styles.input} value={row.metric} onChange={(e) => {
-                const v = e.target.value; setMetrics(ms => ms.map((m, i) => i === idx ? { ...m, metric: v } : m));
-              }} placeholder="e.g. US GDP" />
+              <input
+                className={styles.input}
+                ref={(el) => { metricInputRefs.current[idx] = el; }}
+                value={row.metric}
+                onChange={(e) => {
+                  const v = e.target.value; setMetrics(ms => ms.map((m, i) => i === idx ? { ...m, metric: v } : m));
+                }}
+                placeholder="e.g. US GDP"
+              />
             </div>
             <div className={styles.group}>
               <label className={styles.label}>Op</label>
@@ -155,7 +162,22 @@ export default function NewPredictionModal({ onClose, onCreated, initialTaxonomy
             <button
               type="button"
               className={styles.secondary}
-              onClick={() => setMetrics(ms => (ms.length < 3 ? [...ms, { metric: "", operator: "", target: "" }] : ms))}
+              onClick={() => {
+                setMetrics(ms => {
+                  if (ms.length >= 3) return ms;
+                  const newRow: { metric: string; operator: typeof OPS[number] | ""; target: string } = { metric: "", operator: "" as typeof OPS[number] | "", target: "" };
+                  const next = [...ms, newRow];
+                  // after DOM updates, focus the newly added metric input and scroll into view
+                  setTimeout(() => {
+                    const i = next.length - 1;
+                    const el = metricInputRefs.current[i];
+                    if (el) {
+                      try { el.focus(); el.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch {}
+                    }
+                  }, 0);
+                  return next;
+                });
+              }}
             >
               Add
             </button>
