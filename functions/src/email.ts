@@ -14,9 +14,10 @@ export async function sendEmailInternal(input: EmailInput): Promise<{ status: nu
     throw new Error("SENDGRID_API_KEY missing");
   }
   sgMail.setApiKey(apiKey);
+  const fromEmail = input.from || "no-reply@falsify.app";
   const msg = {
     to: input.to,
-    from: input.from,
+    from: { email: fromEmail, name: "Falsify - Better Critical Thinking" },
     subject: input.subject,
     text: input.text,
     html: input.html
