@@ -385,12 +385,34 @@ export const aiAnalyze = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION,
       model: modelName,
       systemInstruction: { role: "system", parts: sysParts as any }
     } as any);
+    async function callWithBackoff<T>(fn: () => Promise<T>, label: string): Promise<T> {
+      let delay = 400;
+      for (let i = 0; i < 3; i++) {
+        try {
+          return await fn();
+        } catch (e: any) {
+          const code = e?.code || e?.status || e?.response?.status;
+          const msg = String(e?.message || "");
+          const status = String(e?.status || e?.details || "");
+          const is429 = code === 429 || /RESOURCE_EXHAUSTED/i.test(msg) || /Too Many Requests/i.test(msg);
+          const retryable = is429 || /UNAVAILABLE|DEADLINE_EXCEEDED/i.test(status) || /ECONNRESET|ETIMEDOUT|ETIMEOUT|EAI_AGAIN/i.test(msg);
+          if (i < 2 && retryable) {
+            functions.logger.warn("aiAnalyze backoff", { label, attempt: i + 1, delayMs: delay, code, status, preview: msg.slice(0, 120) });
+            await new Promise(r => setTimeout(r, delay));
+            delay *= 2;
+            continue;
+          }
+          throw e;
+        }
+      }
+      return await fn();
+    }
     const compactMetrics = metrics.map(m => ({ metric: String(m.metric), operator: String(m.operator), target: String(m.target) }));
     const prompt = `Return only one minified JSON object with keys: boldness (1-100 integer), relevance (1-100 integer), notes (array of up to 4 short strings). No extra text, no code fences. Input: summary=${summary}; metrics=${JSON.stringify(compactMetrics)}; rationale=${(body.rationale || "").trim()}; timebox=${body.timeboxISO || ""}; taxonomy=${JSON.stringify(body.taxonomy || {})}`;
-    const resp = await model.generateContent({
+    const resp = await callWithBackoff(() => model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0, maxOutputTokens: 2048, responseMimeType: "application/json", responseSchema: { type: "object", properties: { boldness: { type: "integer" }, relevance: { type: "integer" }, notes: { type: "array", items: { type: "string" } } }, required: ["boldness", "relevance"], additionalProperties: false } } as any
-    });
+    }), "primary");
     const cand = resp.response?.candidates?.[0];
     const parts = cand?.content?.parts || [];
     functions.logger.info("aiAnalyze candidate", { finishReason: cand?.finishReason, safetyRatings: cand?.safetyRatings });
@@ -420,10 +442,10 @@ export const aiAnalyze = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION,
     let rtext = "";
     if (!parsed || typeof parsed.boldness === "undefined" || typeof parsed.relevance === "undefined") {
       const retryPrompt = `Output only one minified JSON object exactly matching this schema and nothing else: {"boldness": int (1-100), "relevance": int (1-100), "notes": string[0..4]}. Input: summary=${summary}; metrics=${JSON.stringify(compactMetrics)}; rationale=${(body.rationale || "").trim()}; timebox=${body.timeboxISO || ""}; taxonomy=${JSON.stringify(body.taxonomy || {})}`;
-      const retryResp = await model.generateContent({
+      const retryResp = await callWithBackoff(() => model.generateContent({
         contents: [{ role: "user", parts: [{ text: retryPrompt }] }],
         generationConfig: { temperature: 0, maxOutputTokens: 3072, responseMimeType: "application/json", responseSchema: { type: "object", properties: { boldness: { type: "integer" }, relevance: { type: "integer" }, notes: { type: "array", items: { type: "string" } } }, required: ["boldness", "relevance"], additionalProperties: false } } as any
-      });
+      }), "retry1");
       const rc = retryResp.response?.candidates?.[0];
       const rp = rc?.content?.parts || [];
       functions.logger.info("aiAnalyze retry candidate", { finishReason: rc?.finishReason, safetyRatings: rc?.safetyRatings });
@@ -435,10 +457,10 @@ export const aiAnalyze = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION,
       // Second ultra-strict retry if still not parsable
       if (!parsed || typeof parsed.boldness === "undefined" || typeof parsed.relevance === "undefined") {
         const secondPrompt = `Only output a single JSON object without any extra characters. Schema: {"boldness": integer 1-100, "relevance": integer 1-100, "notes": string[0..4]}. Do not include explanations or markdown. Input: summary=${summary}; metrics=${JSON.stringify(compactMetrics)}; rationale=${(body.rationale || "").trim()}; timebox=${body.timeboxISO || ""}; taxonomy=${JSON.stringify(body.taxonomy || {})}`;
-        const secondResp = await model.generateContent({
+        const secondResp = await callWithBackoff(() => model.generateContent({
           contents: [{ role: "user", parts: [{ text: secondPrompt }] }],
           generationConfig: { temperature: 0, maxOutputTokens: 1024, responseMimeType: "application/json", responseSchema: { type: "object", properties: { boldness: { type: "integer" }, relevance: { type: "integer" }, notes: { type: "array", items: { type: "string" } } }, required: ["boldness", "relevance"], additionalProperties: false } } as any
-        });
+        }), "retry2");
         const sc = secondResp.response?.candidates?.[0];
         const sp = sc?.content?.parts || [];
         functions.logger.info("aiAnalyze second retry candidate", { finishReason: sc?.finishReason, safetyRatings: sc?.safetyRatings });
@@ -461,6 +483,17 @@ export const aiAnalyze = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION,
     functions.logger.info("aiAnalyze out", out);
     res.status(200).json(out);
   } catch (e: any) {
+    const msg = String(e?.message || "");
+    const code = e?.code || e?.status || e?.response?.status;
+    const status = String(e?.status || e?.details || "");
+    const is429 = code === 429 || /RESOURCE_EXHAUSTED/i.test(msg) || /Too Many Requests/i.test(msg);
+    const transient = is429 || /UNAVAILABLE|DEADLINE_EXCEEDED/i.test(status);
+    if (transient) {
+      const out = { boldness: 50, relevance: 50, notes: [], fallbackUsed: true } as any;
+      functions.logger.warn("aiAnalyze final fallback", { code, status, preview: msg.slice(0, 200) });
+      res.status(200).json(out);
+      return;
+    }
     functions.logger.error("aiAnalyze error", { message: e?.message, code: e?.code, details: e?.details, responseData: e?.response?.data, stack: e?.stack });
     res.status(500).json({ error: "ai analyze failed" });
   }
