@@ -130,6 +130,7 @@ export default function Header() {
           {menuOpen && uid && (
             <div className={styles.menu}>
               <button className={styles.menuItem} onClick={() => { setEditorOpen(true); setMenuOpen(false); }}>Profile</button>
+              <Link href={{ pathname: "/notifications" }} className={styles.menuItem}>Notifications</Link>
               <Link href={{ pathname: "/u/" + uid }} className={styles.menuItem}>View profile</Link>
               <Link href={{ pathname: "/consent" }} className={styles.menuItem}>Email settings</Link>
               <button className={styles.menuItem} onClick={() => { const a = getAuth(); signOut(a); setMenuOpen(false); }}>Sign out</button>
