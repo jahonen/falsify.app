@@ -525,7 +525,7 @@ export const notifyOnComment = onDocumentCreated("predictions/{predictionId}/com
 });
 
 // Notifications: prediction reached term (timebox)
-export const notifyPredictionTerm = onSchedule({ schedule: "every 5 minutes", region: "us-central1", timeZone: "Etc/UTC", secrets: [SENDGRID_API_KEY] }, async () => {
+export const notifyPredictionTerm = onSchedule({ schedule: "every 5 minutes", region: "us-central1", timeZone: "Etc/UTC", secrets: [SENDGRID_API_KEY], serviceAccount: "functions-runner@falsify-app.iam.gserviceaccount.com" }, async () => {
   try {
     const db = admin.firestore();
     const now = new Date();
@@ -612,7 +612,8 @@ export const notifyPredictionTerm = onSchedule({ schedule: "every 5 minutes", re
     }
     functions.logger.info("notifyPredictionTerm", { checked: qs.size, notified: notifyCount, emailed: emailQueue.length });
   } catch (e) {
-    functions.logger.error("notifyPredictionTerm failed", { message: (e as any)?.message });
+    const err: any = e;
+    functions.logger.error("notifyPredictionTerm failed", { message: err?.message, error: String(err), stack: err?.stack });
   }
 });
 
