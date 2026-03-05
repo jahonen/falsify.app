@@ -529,12 +529,14 @@ export const notifyPredictionTerm = onSchedule({ schedule: "every 5 minutes", re
   try {
     const db = admin.firestore();
     const now = new Date();
+    functions.logger.info("notifyPredictionTerm start", { hasSendgridKey: !!process.env.SENDGRID_API_KEY, nowISO: now.toISOString() });
     // Query pending predictions; filter timebox/termNotified in code to avoid composite indexes
     const qs = await db
       .collection("predictions")
       .where("status", "==", "pending")
       .limit(500)
       .get();
+    functions.logger.info("notifyPredictionTerm fetched", { count: qs.size });
     const batch = db.batch();
     let notifyCount = 0;
     const emailQueue: Array<{ authorId: string; predictionId: string }> = [];
