@@ -25,6 +25,21 @@ export default function Footer() {
             </svg>
             <span>GitHub</span>
           </a>
+          <a
+            href="https://www.indielaunchers.com/product/e91bd7c4-0c89-4e70-beb9-9c8346887039/share"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center opacity-80 hover:opacity-100 transition-opacity"
+            aria-label="Launched on IndieLaunchers"
+          >
+            <img
+              src="https://www.indielaunchers.com/badges/launchedon-light.svg"
+              alt="Falsify: Predict Political & Economic Futures on IndieLaunchers"
+              className="h-5 w-auto md:h-6"
+              loading="lazy"
+              decoding="async"
+            />
+          </a>
         </nav>
       </div>
     </footer>
