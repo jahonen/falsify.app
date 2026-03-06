@@ -123,43 +123,103 @@
   - Firebase Admin SDK (Firestore)
 
 ## updateReputationOnVoteWrite (Cloud Function, Gen2)
-- tag: alpha
-- description: Adjusts the author's `users/{authorId}.reputation` when a vote on their prediction is created or updated.
+- tag: beta
+- description: Adjusts the author's `users/{authorId}.reputation` on vote writes and maintains segmented aggregates `humanVotesPre`/`humanVotesPost` based on vote time vs `termReachedAt`.
 
 - interfaces
   - inputs
     - Firestore trigger: onDocumentWritten("predictions/{predictionId}/votes/{voterId}")
   - outputs
-    - Increments `users/{authorId}.reputation` by +1 for `calledIt`, -1 for `botched`, 0 for `fence` based on delta between before/after
+    - Reputation: increments `users/{authorId}.reputation` by +1 for `calledIt`, -1 for `botched`, 0 for `fence` based on delta between before/after
+    - Aggregates: updates `predictions/{id}.humanVotesPre.outcome.{calledIt,botched,fence}` and/or `humanVotesPost.outcome.{...}` using `vote.createdAt` < `termReachedAt` to classify phase
   - side_effects
     - Skips self-votes (author == voter)
-    - Sets `updatedAt` on user doc
+    - Sets `updatedAt` on user doc and `predictions/{id}` when aggregates change
 
 - observability
-  - logs: info on deltas applied; errors with context on failure
+  - logs: info on deltas and phases (beforePhase/afterPhase); errors with context on failure
 
 - dependencies
   - Firebase Admin SDK (Firestore)
 
 ## notifyPredictionTerm (Cloud Function, Gen2, Scheduled)
 - tag: beta
-- description: Periodic job that detects predictions whose timebox has reached/passed now and notifies authors once.
+- description: Periodic job that detects predictions whose timebox has reached/passed now, sets `termReachedAt` idempotently, and notifies authors once.
 
 - interfaces
   - inputs
     - Scheduler: every 5 minutes (Etc/UTC)
-    - Query: predictions where status == 'pending'; filters timebox <= now and termNotified != true in code
+    - Query: predictions where status == 'pending'; filters `timebox <= now` in code (avoid composite index)
   - outputs
-    - For each eligible prediction, creates users/{authorId}/notifications/{autoId}: { type: 'term', predictionId, createdAt, read: false }
-    - Sets predictions/{id}.termNotified = true and updates updatedAt
+    - Sets `predictions/{id}.termReachedAt` (if missing) and `updatedAt`
+    - If not previously notified, creates `users/{authorId}/notifications/{autoId}`: { type: 'term', predictionId, createdAt, read: false } and sets `predictions/{id}.termNotified = true`
   - side_effects
-    - Batches writes for efficiency
+    - Batches writes for efficiency; best-effort immediate email to author (consent-gated)
 
 - observability
-  - logs: checked count and notified count; errors with function name and error message
+  - logs: start, fetched count, notified count, emailed count; errors with function name and error message
 
 - dependencies
   - Firebase Admin SDK (Firestore), Cloud Scheduler (via functions v2)
+
+## aiAssessDuePredictions (Cloud Function, Gen2, Scheduled)
+- tag: beta
+- description: Writes `aiResolution` suggestions for predictions that have reached term but are not yet resolved.
+
+- interfaces
+  - inputs
+    - Scheduler: every 15 minutes (Etc/UTC)
+    - Query: predictions where `status == 'pending'`
+  - outputs
+    - Writes `predictions/{id}.aiResolution = { suggestion: 'calledIt'|'botched'|'unknown', confidence: 0..100, metricResults?: [], notes?: [] }`
+    - Does not change `status`
+  - side_effects
+    - Calls Vertex AI Gemini with strict JSON schema and bounded backoff
+
+- observability
+  - logs: start/end, checked/assessed counts, per-item suggestion/confidence; errors with context
+
+- dependencies
+  - Vertex AI (Gemini), Secret Manager (GEMINI_*), Firebase Admin SDK (Firestore)
+
+## autoResolveDuePredictions (Cloud Function, Gen2, Scheduled)
+- tag: beta
+- description: After a grace period from `termReachedAt`, auto-resolves pending predictions using post-term vote consensus, else marks as `disputed`.
+
+- interfaces
+  - inputs
+    - Scheduler: every 30 minutes (Etc/UTC)
+    - Env: `RESOLUTION_GRACE_DAYS` (default 3), `RESOLUTION_MIN_POST_VOTES` (default 5), `RESOLUTION_MIN_POST_SHARE` (default 0.6)
+  - outputs
+    - If consensus: sets `outcome`, `resolutionSource: 'auto-consensus'`, `status: 'resolved'`, `resolvedAt` and `updatedAt`
+    - Else: sets `status: 'disputed'` and `updatedAt`
+  - side_effects
+    - Writes to prediction doc; no emails (author/UI surface handles visibility)
+
+- observability
+  - logs: start/end, thresholds, checked/resolved/disputed counts; errors with context
+
+- dependencies
+  - Firebase Admin SDK (Firestore), Cloud Scheduler (via functions v2)
+
+## prediction-service (Client Service)
+- tag: beta
+- description: Client-side functions for predictions CRUD and lifecycle actions.
+
+- interfaces
+  - inputs/outputs
+    - getPredictionById(id: string) => Promise<Prediction | null>
+    - listPredictions(params?: FeedParams) => Promise<{ items: Prediction[]; nextCursor: DocumentData | null }>
+    - acceptAiSuggestion(predictionId: string) => Promise<void>
+      - side_effects: writes `authorResolution`, sets `outcome`, `status: 'resolved'`, `resolutionSource: 'author'`, timestamps
+    - setOutcome(predictionId: string, outcome: 'calledIt'|'botched'|'fence', rationale?, evidenceUrl?) => Promise<void>
+      - side_effects: writes `authorResolution` with rationale/evidence, sets `outcome`, `status: 'resolved'`, `resolutionSource: 'author'`, timestamps
+
+- observability
+  - client-surface errors through UI toasts; no server logs
+
+- dependencies
+  - Firebase Auth, Firestore
 
 ## follow-service (Client Service)
 - tag: alpha
@@ -214,6 +274,31 @@
   - version: 2.12.7 (locked)
   - usage: client-only chart rendering for Prediction details' Forecast Convergence (`ConvergenceChart`).
   - notes: imported in a client component only; no server-side usage.
+
+### Dev/Test dependencies
+- jest
+  - version: 29.7.0 (locked)
+  - usage: unit and component testing framework for web and functions
+
+- ts-jest
+  - version: 29.2.4 (locked)
+  - usage: TypeScript transformer for Jest
+
+- @types/jest
+  - version: 29.5.12 (locked)
+  - usage: TypeScript typings for Jest globals
+
+- @testing-library/react
+  - version: 14.2.1 (locked)
+  - usage: React component testing utilities
+
+- @testing-library/jest-dom
+  - version: 6.3.0 (locked)
+  - usage: Custom DOM matchers for Jest
+
+- @testing-library/user-event
+  - version: 14.5.2 (locked)
+  - usage: Higher-level user interaction simulation in component tests
 
 
 ## activity-service (Client Service)

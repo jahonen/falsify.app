@@ -106,19 +106,22 @@
 
 ## PredictionModal
 - tag: beta
-- description: Expanded view of a prediction in a modal opened from the feed card. Presents full metrics, rationale, AI analysis, timeline, verdict bar, and a basic discussion section with add comment.
+- description: Expanded view of a prediction in a modal opened from the feed card. Presents full metrics, rationale, AI analysis, timeline, verdict bar, and a discussion section. After the deadline (`termReachedAt`), shows an outcome banner with AI suggestion and author actions (Accept/Override). Inserts a visual divider in discussion at the deadline.
 
 - interfaces
   - inputs
-    - prediction: Prediction (includes optional `metrics`, `rationale`, `aiAnalysis`, `humanVotes`, `comments`)
+    - prediction: Prediction (may include `metrics`, `rationale`, `aiAnalysis`, `aiResolution`, `humanVotes`, `humanVotesPre`, `humanVotesPost`, `comments`, `termReachedAt`)
     - onClose: () => void
   - outputs
     - onCommentAdded?: (commentId) => void
   - side_effects
     - Calls `discussion-service.addComment` to append a new comment
+    - After deadline banner:
+      - Accept AI suggestion → calls `prediction-service.acceptAiSuggestion(predictionId)`
+      - Override outcome → calls `prediction-service.setOutcome(predictionId, outcome, rationale?, evidenceUrl?)`
 
 - observability
-  - analytics: optional events on open/close and discussion expand
+  - analytics: may emit resolution_accepted, resolution_overridden, and UI interaction events (banner_view/click)
 
 
 ## Header

@@ -46,7 +46,38 @@ export interface Prediction {
   status: PredictionStatus;
   aiScore: AIScore;
   humanVotes: HumanVotes;
+  // Lifecycle v1 (optional for backward compat)
+  termReachedAt?: Date;
+  aiResolution?: AIResolution;
+  authorResolution?: AuthorResolution;
+  outcome?: "calledIt" | "botched" | "fence";
+  resolutionSource?: "author" | "auto-consensus" | "moderation";
+  // Segmented aggregates (optional for UI v1)
+  humanVotesPre?: HumanVotes;
+  humanVotesPost?: HumanVotes;
   comments: string[];
   createdAt: Date;
   resolvedAt?: Date;
+}
+
+export interface AIResolutionMetric {
+  name: string;
+  assessment: "met" | "unmet" | "unknown";
+  confidence?: number;
+  note?: string;
+}
+
+export interface AIResolution {
+  suggestion: "calledIt" | "botched" | "unknown";
+  confidence: number;
+  metricResults?: AIResolutionMetric[];
+  notes?: string[];
+}
+
+export interface AuthorResolution {
+  outcome: "calledIt" | "botched" | "fence";
+  rationale?: string;
+  evidenceUrl?: string;
+  decidedBy: string; // uid
+  decidedAt: Date;
 }

@@ -111,3 +111,92 @@ Owner: Cascade (updates continuously as work progresses)
 - v1 (2026-03-01): Initial plan created; current status and next actions recorded.
 - v2 (2026-03-01): Started Feed MVP; added predictionService, usePredictionFeed, and home integration with pagination.
 - v3 (2026-03-02): Implemented Search v1 (?q client filter) and expanded Prediction modal; updated README and docs.
+
+## 8. SEO – Dynamic Sitemaps for Predictions [DEFERRED]
+- Scope: Improve index coverage of individual predictions by exposing them via sitemaps.
+- Structure:
+  - /sitemap.xml (index) -> static pages + /sitemap/predictions.xml
+  - /sitemap/predictions.xml -> lists monthly sub-sitemaps (e.g., /sitemap/predictions/2026-03.xml)
+  - /sitemap/predictions/YYYY-MM.xml -> URLs for public predictions in that month
+- Implementation sketch:
+  - Next route handlers under app/sitemap*.xml with server-side Firestore reads and strong caching.
+  - Cache-Control: public, max-age=3600, s-maxage=86400.
+  - Firestore filters: visibility public, status in [pending,resolved]. lastmod = max(updatedAt, timebox, resolvedAt, createdAt fallback).
+  - Add robots route (app/robots.ts) with Sitemap: https://falsify.app/sitemap.xml
+- Indexes: add composite indexes for status + updatedAt (and/or createdAt by month).
+- Acceptance: Google Search Console fetches sitemap index; monthly files under 50k URLs; URLs resolve to /p/{id}.
+
+## 9. Prediction Lifecycle v1 [BETA]
+- Goal: Separate AI assessment, Author resolution, and Community votes; segment votes/comments into pre-term and post-term for clarity and fairness.
+
+- Data model (additions)
+  - termReachedAt: Timestamp (set when timebox passes; idempotent)
+  - aiResolution: {
+    - suggestion: calledIt | botched | unknown
+    - confidence: number (0–100)
+    - metricResults: Array<{ metric, operator, target, assessment: met | unmet | unknown; confidence?: number; evidenceUrl?: string }>
+    - notes?: string[]
+  }
+  - authorResolution: {
+    - outcome: calledIt | botched | fence
+    - rationale?: string
+    - evidenceUrl?: string
+    - decidedBy: string (uid)
+    - decidedAt: Timestamp
+  }
+  - outcome: calledIt | botched | fence (final)
+  - resolutionSource: author | auto-consensus | moderation
+  - Votes (segmented aggregates):
+    - humanVotesPre: { outcome: { calledIt, botched, fence }, quality: { high, low } }
+    - humanVotesPost: { outcome: { calledIt, botched, fence }, quality: { high, low } }
+    - Each vote doc keeps createdAt; phase derived at write (createdAt < termReachedAt ? pre : post)
+
+- Services / Functions (interfaces; inputs/outputs/side_effects)
+  - notifyPredictionTerm [extend]
+    - Inputs: scheduled
+    - Outputs: set termReachedAt (if due); ensure termNotified + user notification
+    - Side effects: writes prediction + notification docs; sends email
+  - aiAssessDuePredictions [new scheduled]
+    - Inputs: scheduled
+    - Outputs: writes aiResolution (suggestion, confidence, metricResults, notes)
+    - Side effects: Vertex AI call; no status change
+  - acceptAiSuggestion(predictionId) [client]
+    - Inputs: { predictionId }
+    - Outputs: authorResolution, outcome, resolvedAt, resolutionSource: author, status: resolved
+    - Side effects: writes prediction; analytics event
+  - setOutcome(predictionId, outcome, rationale?, evidenceUrl?) [client]
+    - Inputs: { predictionId, outcome, optional rationale/evidenceUrl }
+    - Outputs: authorResolution (manual), resolvedAt, resolutionSource: author, status: resolved
+    - Side effects: writes prediction; analytics event
+  - updateReputationOnVoteWrite [extend]
+    - Inputs: Firestore onWrite for predictions/{id}/votes/{uid}
+    - Outputs: maintain humanVotesPre and humanVotesPost based on vote.createdAt vs termReachedAt; keep reputation delta
+    - Side effects: updates prediction aggregates; user reputation increments remain
+  - autoResolveDuePredictions [new scheduled]
+    - Inputs: scheduled; after gracePeriodDays from termReachedAt
+    - Outputs: if clear consensus in post-term votes, set outcome/resolvedAt/status resolved with resolutionSource: auto-consensus; else status: disputed
+    - Side effects: writes prediction; logs summary
+
+- UI/UX
+  - /p/[id] banner after termReachedAt: shows AI suggestion (confidence, per-metric results) and actions: Accept, Override
+  - Discussion divider: visually separates comments before vs after termReachedAt with a labelled border (e.g., "After deadline")
+
+
+- Observability & Analytics
+  - Log start/end/counts/errors in jobs; include reasons for skips
+  - Events: ai_resolution_suggested, resolution_accepted, resolution_overridden, auto_resolved, resolution_disputed
+
+- Security/Rules
+  - Authors (or moderators) can set outcome during grace window
+  - Scheduled function can set outcome post-grace under consensus rules
+
+- Testing
+  - Unit: lifecycle transitions (termReachedAt; grace window), AI suggestion write, vote phase aggregation, consensus thresholds
+  - Contract: aiAssessDuePredictions output shape; autoResolveDuePredictions paths (resolved/disputed)
+
+- Acceptance Criteria
+  - On term, termReachedAt set and notification sent
+  - AI suggestion present without altering status
+  - Author can accept/override; status becomes resolved with proper source
+  - Post-grace, clear consensus auto-resolves; otherwise marked disputed
+  - UI shows pre/post-term vote counts and a comments divider

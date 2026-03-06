@@ -11,15 +11,218 @@ if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-export const health = functions.https.onRequest((_: any, res: any) => {
-  res.status(200).send("ok");
-});
-
 const SENDGRID_API_KEY = defineSecret("SENDGRID_API_KEY");
 const GEMINI_MODEL_NAME = defineSecret("GEMINI_MODEL_NAME");
 const GEMINI_REGION = defineSecret("GEMINI_REGION");
 const BOLDNESS_RATING_GUIDE = defineSecret("BOLDNESS_RATING_GUIDE");
 const RELEVANCE_RATING_GUIDE = defineSecret("RELEVANCE_RATING_GUIDE");
+
+export const health = functions.https.onRequest((_: any, res: any) => {
+  res.status(200).send("ok");
+});
+
+// Auto-resolve predictions after grace period using post-term vote consensus
+export const autoResolveDuePredictions = onSchedule({ schedule: "every 30 minutes", region: "us-central1", timeZone: "Etc/UTC" }, async () => {
+  const db = admin.firestore();
+  const now = new Date();
+  const graceDays = Number(process.env.RESOLUTION_GRACE_DAYS || 3);
+  const graceMs = graceDays * 24 * 60 * 60 * 1000;
+  const minVotes = Number(process.env.RESOLUTION_MIN_POST_VOTES || 5);
+  const minShare = Number(process.env.RESOLUTION_MIN_POST_SHARE || 0.6);
+  functions.logger.info("autoResolveDuePredictions start", { nowISO: now.toISOString(), graceDays, minVotes, minShare });
+  try {
+    const qs = await db
+      .collection("predictions")
+      .where("status", "==", "pending")
+      .limit(500)
+      .get();
+    let resolved = 0;
+    let disputed = 0;
+    for (const doc of qs.docs) {
+      const d = doc.data() as any;
+      const term = d?.termReachedAt;
+      if (!term) continue;
+      let termDate: Date | null = null;
+      try { termDate = term?.toDate ? term.toDate() : new Date(term); } catch { termDate = null; }
+      if (!termDate) continue;
+      if (now.getTime() - termDate.getTime() < graceMs) continue; // still in grace period
+      const hv = (d?.humanVotesPost?.outcome || {}) as { calledIt?: number; botched?: number; fence?: number };
+      const called = Number(hv.calledIt || 0);
+      const botched = Number(hv.botched || 0);
+      const fence = Number(hv.fence || 0);
+      const total = called + botched + fence;
+      if (total < minVotes) {
+        // Not enough signal: mark disputed
+        await doc.ref.set({ status: "disputed", updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        disputed++;
+        continue;
+      }
+      const entries: Array<["calledIt"|"botched"|"fence", number]> = [["calledIt", called], ["botched", botched], ["fence", fence]];
+      entries.sort((a, b) => b[1] - a[1]);
+      const [topOutcome, topCount] = entries[0];
+      const share = topCount / total;
+      if (share >= minShare) {
+        await doc.ref.set({
+          outcome: topOutcome,
+          resolutionSource: "auto-consensus",
+          status: "resolved",
+          resolvedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        resolved++;
+      } else {
+        await doc.ref.set({ status: "disputed", updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        disputed++;
+      }
+    }
+    functions.logger.info("autoResolveDuePredictions done", { checked: qs.size, resolved, disputed, graceDays, minVotes, minShare });
+  } catch (e: any) {
+    functions.logger.error("autoResolveDuePredictions failed", { message: e?.message });
+  }
+});
+
+// AI assessment for due predictions: write aiResolution without changing status
+export const aiAssessDuePredictions = onSchedule({ schedule: "every 15 minutes", region: "us-central1", timeZone: "Etc/UTC", secrets: [GEMINI_MODEL_NAME, GEMINI_REGION], serviceAccount: "functions-runner@falsify-app.iam.gserviceaccount.com" }, async () => {
+  const db = admin.firestore();
+  const now = new Date();
+  functions.logger.info("aiAssessDuePredictions start", { nowISO: now.toISOString() });
+  try {
+    const qs = await db
+      .collection("predictions")
+      .where("status", "==", "pending")
+      .limit(100)
+      .get();
+    let assessed = 0;
+    const project = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+    const location = process.env.GEMINI_REGION || "us-central1";
+    const modelName = process.env.GEMINI_MODEL_NAME || "gemini-1.5-pro";
+    const vertex = new VertexAI({ project: project as string, location });
+    const model = vertex.getGenerativeModel({ model: modelName } as any);
+
+    async function callWithBackoff<T>(fn: () => Promise<T>, label: string): Promise<T> {
+      let delay = 400;
+      for (let i = 0; i < 3; i++) {
+        try { return await fn(); } catch (e: any) {
+          const code = e?.code || e?.status || e?.response?.status;
+          const msg = String(e?.message || "");
+          const status = String(e?.status || e?.details || "");
+          const is429 = code === 429 || /RESOURCE_EXHAUSTED/i.test(msg) || /Too Many Requests/i.test(msg);
+          const retryable = is429 || /UNAVAILABLE|DEADLINE_EXCEEDED/i.test(status) || /ECONNRESET|ETIMEDOUT|ETIMEOUT|EAI_AGAIN/i.test(msg);
+          if (i < 2 && retryable) {
+            functions.logger.warn("aiAssess backoff", { label, attempt: i + 1, delayMs: delay, code, status, preview: msg.slice(0, 120) });
+            await new Promise(r => setTimeout(r, delay));
+            delay *= 2;
+            continue;
+          }
+          throw e;
+        }
+      }
+      return await fn();
+    }
+
+    for (const doc of qs.docs) {
+      const d = doc.data() as any;
+      const hasTerm = !!d?.termReachedAt;
+      const hasAI = !!d?.aiResolution;
+      if (!hasTerm || hasAI) continue;
+      const summary = String(d?.summary || "").slice(0, 2000);
+      const rationale = String(d?.rationale || "").slice(0, 4000);
+      const metrics = Array.isArray(d?.metrics) ? d.metrics.slice(0, 10) : [];
+      const timeboxISO = (() => {
+        const tb = d?.timebox;
+        try { return tb?.toDate ? tb.toDate().toISOString() : (tb ? new Date(tb).toISOString() : ""); } catch { return ""; }
+      })();
+      const prompt = [
+        "You are evaluating a prediction after its deadline.",
+        "Return ONLY one JSON object with fields: suggestion, confidence, metricResults, notes.",
+        "- suggestion: one of calledIt | botched | unknown",
+        "- confidence: integer 0..100",
+        "- metricResults: array of { name, assessment: met|unmet|unknown, confidence: 0..100, note? }",
+        "- notes: array of short strings (0..6)",
+        "Context:",
+        `summary=${summary}`,
+        rationale ? `rationale=${rationale}` : "",
+        metrics.length ? `metrics=${JSON.stringify(metrics).slice(0, 4000)}` : "metrics=[]",
+        timeboxISO ? `deadline=${timeboxISO}` : ""
+      ].filter(Boolean).join("\n");
+
+      try {
+        const resp = await callWithBackoff(() => model.generateContent({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 2048,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "object",
+              properties: {
+                suggestion: { type: "string", enum: ["calledIt", "botched", "unknown"] },
+                confidence: { type: "integer" },
+                metricResults: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      name: { type: "string" },
+                      assessment: { type: "string", enum: ["met", "unmet", "unknown"] },
+                      confidence: { type: "integer" },
+                      note: { type: "string" }
+                    },
+                    required: ["name", "assessment"],
+                    additionalProperties: false
+                  }
+                },
+                notes: { type: "array", items: { type: "string" } }
+              },
+              required: ["suggestion", "confidence"],
+              additionalProperties: false
+            } as any
+          } as any
+        }), "primary");
+        const cand = (resp as any)?.response?.candidates?.[0];
+        const parts = cand?.content?.parts || [];
+        let jsonText = "";
+        for (const p of parts) {
+          if (p?.inlineData?.mimeType === "application/json" && p?.inlineData?.data) {
+            jsonText = Buffer.from(p.inlineData.data, "base64").toString("utf8");
+            break;
+          }
+          if (p?.text) jsonText += p.text;
+        }
+        function tryParse(t: string): any {
+          try { return JSON.parse(t); } catch {}
+          const m = t.match(/```json\s*([\s\S]*?)```/i) || t.match(/```\s*([\s\S]*?)```/i);
+          if (m && m[1]) { try { return JSON.parse(m[1]); } catch {} }
+          const i = t.indexOf("{"); const j = t.lastIndexOf("}");
+          if (i >= 0 && j > i) { try { return JSON.parse(t.slice(i, j + 1)); } catch {} }
+          return null;
+        }
+        const parsed = tryParse(jsonText) || {};
+        const suggestion = ["calledIt", "botched", "unknown"].includes(parsed?.suggestion) ? parsed.suggestion : "unknown";
+        const confidence = Math.max(0, Math.min(100, Number(parsed?.confidence ?? 0))) | 0;
+        const metricResults = Array.isArray(parsed?.metricResults) ? parsed.metricResults.slice(0, 12).map((m: any) => ({
+          name: String(m?.name || "metric"),
+          assessment: ["met", "unmet", "unknown"].includes(m?.assessment) ? m.assessment : "unknown",
+          confidence: Math.max(0, Math.min(100, Number(m?.confidence ?? 0))) | 0,
+          note: m?.note ? String(m.note).slice(0, 500) : undefined
+        })) : [];
+        const notes = Array.isArray(parsed?.notes) ? parsed.notes.slice(0, 6).map((s: any) => String(s)).filter(Boolean) : [];
+        const out = { suggestion, confidence, metricResults, notes } as any;
+        await doc.ref.set({ aiResolution: out, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        assessed++;
+        functions.logger.info("aiAssess wrote aiResolution", { predictionId: doc.id, suggestion, confidence });
+      } catch (e: any) {
+        const code = e?.code || e?.status || e?.response?.status;
+        functions.logger.error("aiAssess error", { predictionId: doc.id, message: e?.message, code });
+      }
+    }
+    functions.logger.info("aiAssessDuePredictions done", { checked: qs.size, assessed, model: modelName, location });
+  } catch (e: any) {
+    functions.logger.error("aiAssessDuePredictions failed", { message: e?.message });
+  }
+});
+
+ 
 
 export const aiScore = onRequest({ secrets: [GEMINI_MODEL_NAME, GEMINI_REGION], region: "us-central1", serviceAccount: "functions-runner@falsify-app.iam.gserviceaccount.com" }, async (req: any, res: any) => {
   const origin = (req.headers.origin as string | undefined) || "";
@@ -572,6 +775,7 @@ export const notifyPredictionTerm = onSchedule({ schedule: "every 5 minutes", re
     functions.logger.info("notifyPredictionTerm fetched", { count: qs.size });
     const batch = db.batch();
     let notifyCount = 0;
+    let batchOps = 0;
     const emailQueue: Array<{ authorId: string; predictionId: string }> = [];
     for (const doc of qs.docs) {
       const d = doc.data() as any;
@@ -585,22 +789,34 @@ export const notifyPredictionTerm = onSchedule({ schedule: "every 5 minutes", re
       }
       const authorId: string | undefined = d?.authorId;
       const termNotified: boolean = !!d?.termNotified;
-      if (!timeboxDate || !authorId || termNotified) continue;
+      const hasTermReachedAt: boolean = !!d?.termReachedAt;
+      if (!timeboxDate || !authorId) continue;
       // timebox reached
       if (timeboxDate.getTime() <= now.getTime()) {
-        const notifRef = db.collection("users").doc(authorId).collection("notifications").doc();
-        batch.set(notifRef, {
-          type: "term",
-          predictionId: doc.id,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          read: false
-        });
-        batch.update(doc.ref, { termNotified: true, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
-        emailQueue.push({ authorId, predictionId: doc.id });
-        notifyCount++;
+        if (!termNotified) {
+          const notifRef = db.collection("users").doc(authorId).collection("notifications").doc();
+          batch.set(notifRef, {
+            type: "term",
+            predictionId: doc.id,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            read: false
+          });
+          batchOps++;
+          emailQueue.push({ authorId, predictionId: doc.id });
+          notifyCount++;
+        }
+        const updateData: any = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+        if (!hasTermReachedAt) {
+          (updateData as any).termReachedAt = admin.firestore.FieldValue.serverTimestamp();
+        }
+        if (!termNotified) {
+          (updateData as any).termNotified = true;
+        }
+        batch.update(doc.ref, updateData);
+        batchOps++;
       }
     }
-    if (notifyCount > 0) {
+    if (batchOps > 0) {
       await batch.commit();
     }
     // Send immediate emails to authors for reached-term predictions (best-effort)
@@ -676,18 +892,65 @@ export const updateReputationOnVoteWrite = onDocumentWritten("predictions/{predi
     const nextType = after?.type as ("calledIt" | "botched" | "fence" | string | undefined);
     const score = (t?: string) => (t === "calledIt" ? 1 : t === "botched" ? -1 : 0);
     const delta = score(nextType) - score(prevType);
-    if (!delta) return;
+
     const { predictionId, voterId } = event.params as { predictionId: string; voterId: string };
     const db = admin.firestore();
-    const predSnap = await db.doc(`predictions/${predictionId}`).get();
+    const predRef = db.doc(`predictions/${predictionId}`);
+    const predSnap = await predRef.get();
     if (!predSnap.exists) return;
-    const authorId = (predSnap.data() as any)?.authorId as string | undefined;
+    const predData = predSnap.data() as any;
+    const authorId = predData?.authorId as string | undefined;
     if (!authorId || authorId === voterId) return; // skip self-votes and missing author
-    await db.doc(`users/${authorId}`).set({
-      reputation: admin.firestore.FieldValue.increment(delta),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    functions.logger.info("updateReputationOnVoteWrite", { authorId, voterId, predictionId, delta, prevType, nextType });
+
+    // Reputation update only when delta != 0
+    if (delta) {
+      await db.doc(`users/${authorId}`).set({
+        reputation: admin.firestore.FieldValue.increment(delta),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+
+    // Segmented aggregates: humanVotesPre/humanVotesPost.outcome.{calledIt,botched,fence}
+    const term = (() => {
+      const t = predData?.termReachedAt;
+      try { return t?.toDate ? t.toDate() : (t ? new Date(t) : null); } catch { return null; }
+    })();
+    const now = new Date();
+    const getDate = (snap: any, which: "before" | "after"): Date | null => {
+      const d = snap?.createdAt;
+      try {
+        if (d?.toDate) return d.toDate();
+        if (typeof d === "string") { const dt = new Date(d); return isNaN(dt.getTime()) ? null : dt; }
+        if (typeof d === "number") { const dt = new Date(d); return isNaN(dt.getTime()) ? null : dt; }
+      } catch {}
+      // Fallback: treat missing createdAt as the write time (approx via now)
+      return now;
+    };
+    const phaseKey = (dt: Date | null): "Pre" | "Post" => {
+      if (!term || !dt) return "Pre"; // if no term yet, all are pre
+      return dt.getTime() < term.getTime() ? "Pre" : "Post";
+    };
+    const normType = (t?: string): "calledIt" | "botched" | "fence" | null => (t === "calledIt" || t === "botched" || t === "fence") ? t : null;
+    const beforeType = normType(prevType);
+    const afterType = normType(nextType);
+    const beforePhase = beforeType ? phaseKey(getDate(before, "before")) : null;
+    const afterPhase = afterType ? phaseKey(getDate(after, "after")) : null;
+
+    const updates: Record<string, any> = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+    const bump = (phase: "Pre" | "Post", type: "calledIt" | "botched" | "fence", n: number) => {
+      updates[`humanVotes${phase}.outcome.${type}`] = admin.firestore.FieldValue.increment(n);
+    };
+
+    // Create or type-change: decrement previous, increment new
+    if (beforeType && beforePhase) bump(beforePhase, beforeType, -1);
+    if (afterType && afterPhase) bump(afterPhase, afterType, 1);
+
+    // Only write if we actually changed aggregates
+    if (Object.keys(updates).length > 1) {
+      await predRef.set(updates, { merge: true });
+    }
+
+    functions.logger.info("updateReputationOnVoteWrite", { authorId, voterId, predictionId, delta, prevType, nextType, beforePhase, afterPhase });
   } catch (e) {
     functions.logger.error("updateReputationOnVoteWrite failed", { message: (e as any)?.message });
   }

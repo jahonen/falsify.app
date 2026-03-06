@@ -1,5 +1,6 @@
-import { collection, getDocs, getFirestore, limit as fsLimit, orderBy, query, startAfter, where, DocumentData, QueryConstraint, addDoc, serverTimestamp, Timestamp, doc, getDoc } from "firebase/firestore";
-import type { Prediction, Metric } from "../types/prediction";
+import { collection, getDocs, getFirestore, limit as fsLimit, orderBy, query, startAfter, where, DocumentData, QueryConstraint, addDoc, serverTimestamp, Timestamp, doc, getDoc, setDoc } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import type { Prediction, Metric, AIResolution, AuthorResolution, HumanVotes } from "../types/prediction";
 import type { AIScore } from "../types/prediction";
 import type { AIAnalysis } from "../types/prediction";
 
@@ -44,9 +45,19 @@ export async function listPredictions(params: FeedParams = {}): Promise<FeedResu
       status: data.status ?? "pending",
       aiScore: data.aiScore ?? { plausibility: 5, vaguenessFlag: false, notes: [] },
       aiAnalysis: data.aiAnalysis ?? undefined,
-      humanVotes: data.humanVotes ?? { outcome: { calledIt: 0, botched: 0, fence: 0 }, quality: { high: 0, low: 0 } },
+      humanVotes: (data.humanVotes ?? { outcome: { calledIt: 0, botched: 0, fence: 0 }, quality: { high: 0, low: 0 } }) as HumanVotes,
+      humanVotesPre: data.humanVotesPre as HumanVotes | undefined,
+      humanVotesPost: data.humanVotesPost as HumanVotes | undefined,
       comments: data.comments ?? [],
       createdAt: (data.createdAt?.toDate?.() ?? new Date()) as Date,
+      termReachedAt: data.termReachedAt ? (data.termReachedAt.toDate?.() ?? new Date(data.termReachedAt)) : undefined,
+      aiResolution: (data.aiResolution as AIResolution | undefined),
+      authorResolution: data.authorResolution ? ({
+        ...data.authorResolution,
+        decidedAt: (data.authorResolution.decidedAt?.toDate?.() ?? new Date(data.authorResolution.decidedAt))
+      } as AuthorResolution) : undefined,
+      outcome: data.outcome as any,
+      resolutionSource: data.resolutionSource as any,
       resolvedAt: data.resolvedAt ? (data.resolvedAt.toDate?.() ?? undefined) : undefined
     } as Prediction;
   });
@@ -125,12 +136,80 @@ export async function getPredictionById(id: string): Promise<Prediction | null> 
       status: data.status ?? "pending",
       aiScore: data.aiScore ?? { plausibility: 5, vaguenessFlag: false, notes: [] },
       aiAnalysis: data.aiAnalysis ?? undefined,
-      humanVotes: data.humanVotes ?? { outcome: { calledIt: 0, botched: 0, fence: 0 }, quality: { high: 0, low: 0 } },
+      humanVotes: (data.humanVotes ?? { outcome: { calledIt: 0, botched: 0, fence: 0 }, quality: { high: 0, low: 0 } }) as HumanVotes,
+      humanVotesPre: data.humanVotesPre as HumanVotes | undefined,
+      humanVotesPost: data.humanVotesPost as HumanVotes | undefined,
       comments: data.comments ?? [],
       createdAt: (data.createdAt?.toDate?.() ?? new Date()) as Date,
+      termReachedAt: data.termReachedAt ? (data.termReachedAt.toDate?.() ?? new Date(data.termReachedAt)) : undefined,
+      aiResolution: (data.aiResolution as AIResolution | undefined),
+      authorResolution: data.authorResolution ? ({
+        ...data.authorResolution,
+        decidedAt: (data.authorResolution.decidedAt?.toDate?.() ?? new Date(data.authorResolution.decidedAt))
+      } as AuthorResolution) : undefined,
+      outcome: data.outcome as any,
+      resolutionSource: data.resolutionSource as any,
       resolvedAt: data.resolvedAt ? (data.resolvedAt.toDate?.() ?? undefined) : undefined
     } as Prediction;
   } catch {
     return null;
   }
+}
+
+// Author accepts the AI suggestion as final outcome
+export async function acceptAiSuggestion(predictionId: string): Promise<void> {
+  const db = getFirestore();
+  const ref = doc(db, "predictions", predictionId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error("Prediction not found");
+  const data = snap.data() as any;
+  const ai = data.aiResolution as AIResolution | undefined;
+  if (!ai) throw new Error("AI suggestion not available yet");
+  const outcome = ai.suggestion === "calledIt" ? "calledIt" : ai.suggestion === "botched" ? "botched" : "fence";
+  const auth = getAuth();
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error("Sign in required");
+  const authorResolution: AuthorResolution = {
+    outcome,
+    decidedBy: uid,
+    decidedAt: new Date()
+  };
+  await setDoc(ref, {
+    authorResolution: {
+      ...authorResolution,
+      decidedAt: serverTimestamp()
+    },
+    outcome,
+    resolutionSource: "author",
+    status: "resolved",
+    resolvedAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+
+// Author sets an explicit outcome (override)
+export async function setOutcome(predictionId: string, outcome: "calledIt" | "botched" | "fence", rationale?: string, evidenceUrl?: string): Promise<void> {
+  const db = getFirestore();
+  const ref = doc(db, "predictions", predictionId);
+  const auth = getAuth();
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error("Sign in required");
+  const authorResolution: AuthorResolution = {
+    outcome,
+    rationale,
+    evidenceUrl,
+    decidedBy: uid,
+    decidedAt: new Date()
+  };
+  await setDoc(ref, {
+    authorResolution: {
+      ...authorResolution,
+      decidedAt: serverTimestamp()
+    },
+    outcome,
+    resolutionSource: "author",
+    status: "resolved",
+    resolvedAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  }, { merge: true });
 }

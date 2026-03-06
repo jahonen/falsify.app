@@ -3,6 +3,7 @@ import type { Prediction } from "../../types/prediction";
 import RelativeDaysText from "../RelativeDaysText/RelativeDaysText";
 import { useEffect, useMemo, useState } from "react";
 import { addComment } from "../../services/discussion-service";
+import { acceptAiSuggestion, setOutcome } from "../../services/prediction-service";
 import { toast } from "react-hot-toast";
 import { collection, doc, getDoc, getFirestore, onSnapshot, orderBy, query, Timestamp } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
@@ -37,6 +38,7 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
   const [userVote, setUserVote] = useState<VoteVariant | null>(null);
   const [voting, setVoting] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [resolving, setResolving] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -248,6 +250,71 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
               <div />
             </div>
 
+            {prediction.termReachedAt && prediction.status === "pending" && (
+              <div className="rounded border border-amber-300 bg-amber-50 p-3 grid gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm text-amber-900">
+                    Deadline reached on <strong>{fmtDate(prediction.termReachedAt)}</strong>. Review and finalize a verdict.
+                  </div>
+                  {prediction.aiResolution && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-neutral-600">AI suggestion:</span>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded border" style={{ borderColor: "#e5e7eb" }}>
+                        {prediction.aiResolution.suggestion} · {prediction.aiResolution.confidence}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="text-sm px-3 py-1.5 rounded border border-neutralBorder hover:bg-neutralBg disabled:opacity-60"
+                    disabled={resolving || !prediction.aiResolution}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!prediction.aiResolution) return;
+                      try {
+                        setResolving(true);
+                        await acceptAiSuggestion(prediction.id);
+                        toast.success("Resolution saved");
+                        onClose();
+                      } catch (err: any) {
+                        toast.error(err?.message || "Failed to accept suggestion");
+                      } finally {
+                        setResolving(false);
+                      }
+                    }}
+                  >Accept AI suggestion</button>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-neutral-500 mr-1">Override:</span>
+                    <button
+                      className="text-xs px-2 py-1 rounded border border-neutralBorder hover:bg-neutralBg disabled:opacity-60"
+                      disabled={resolving}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try { setResolving(true); await setOutcome(prediction.id, "calledIt"); toast.success("Marked as Called It"); onClose(); } catch (err: any) { toast.error(err?.message || "Failed"); } finally { setResolving(false); }
+                      }}
+                    >Called It</button>
+                    <button
+                      className="text-xs px-2 py-1 rounded border border-neutralBorder hover:bg-neutralBg disabled:opacity-60"
+                      disabled={resolving}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try { setResolving(true); await setOutcome(prediction.id, "fence"); toast.success("Marked as Fence"); onClose(); } catch (err: any) { toast.error(err?.message || "Failed"); } finally { setResolving(false); }
+                      }}
+                    >Fence</button>
+                    <button
+                      className="text-xs px-2 py-1 rounded border border-neutralBorder hover:bg-neutralBg disabled:opacity-60"
+                      disabled={resolving}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try { setResolving(true); await setOutcome(prediction.id, "botched"); toast.success("Marked as Botched"); onClose(); } catch (err: any) { toast.error(err?.message || "Failed"); } finally { setResolving(false); }
+                      }}
+                    >Botched</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="grid gap-2">
               <div className={`${jetmono.className} text-[0.6rem] uppercase tracking-[0.14em] text-neutral-400`}>Forecast convergence</div>
               <div className="flex items-center justify-between">
@@ -323,35 +390,53 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
                   <div className="text-neutral-500 italic">Be the first to reason out loud.</div>
                 )}
                 <ul className="grid gap-3">
-                  {comments.map((c) => {
-                    const p = profiles[c.userId] || null;
-                    const isOP = c.userId === prediction.authorId;
-                    return (
-                      <li key={c.id} className="border-t border-neutralBorder pt-2">
-                        <div className="flex items-start gap-2">
-                          <button type="button" onClick={() => setProfileUid(c.userId)} className="shrink-0">
-                            {p?.photoURL ? (
-                              <img src={p.photoURL} alt="avatar" className="w-7 h-7 rounded-full border object-cover" />
-                            ) : (
-                              <div className="w-7 h-7 rounded-full border bg-neutral-100 grid place-items-center text-neutral-600 text-[0.8rem]">
-                                {(p?.displayName || "?").charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                          </button>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <button type="button" onClick={() => setProfileUid(c.userId)} className="font-medium text-neutral-800 truncate hover:underline">
-                                {p?.displayName || "Unknown"}
-                              </button>
-                              {isOP && <span className={`${jetmono.className} text-[0.58rem] uppercase tracking-[0.12em] text-neutral-600 border border-neutral-200 rounded-[3px] px-1.5 py-0.5`}>OP</span>}
-                              <span className="text-neutral-400 text-xs">• {fmtSince(c.createdAt)}</span>
+                  {(() => {
+                    const items: any[] = [];
+                    const term = prediction.termReachedAt ? new Date(prediction.termReachedAt) : null;
+                    let dividerInserted = false;
+                    comments.forEach((c, idx) => {
+                      const isAfter = term && c.createdAt ? c.createdAt.getTime() >= term.getTime() : false;
+                      if (term && !dividerInserted && isAfter) {
+                        dividerInserted = true;
+                        items.push(
+                          <li key="divider" className="pt-2">
+                            <div className="relative text-center">
+                              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-neutral-200" />
+                              <span className="relative bg-white px-2 text-[11px] uppercase tracking-[0.14em] text-neutral-500">After deadline</span>
                             </div>
-                            <div className="text-neutral-800 leading-6 whitespace-pre-wrap break-words">{c.text}</div>
+                          </li>
+                        );
+                      }
+                      const p = profiles[c.userId] || null;
+                      const isOP = c.userId === prediction.authorId;
+                      items.push(
+                        <li key={c.id} className="border-t border-neutralBorder pt-2">
+                          <div className="flex items-start gap-2">
+                            <button type="button" onClick={() => setProfileUid(c.userId)} className="shrink-0">
+                              {p?.photoURL ? (
+                                <img src={p.photoURL} alt="avatar" className="w-7 h-7 rounded-full border object-cover" />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full border bg-neutral-100 grid place-items-center text-neutral-600 text-[0.8rem]">
+                                  {(p?.displayName || "?").charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <button type="button" onClick={() => setProfileUid(c.userId)} className="font-medium text-neutral-800 truncate hover:underline">
+                                  {p?.displayName || "Unknown"}
+                                </button>
+                                {isOP && <span className={`${jetmono.className} text-[0.58rem] uppercase tracking-[0.12em] text-neutral-600 border border-neutral-200 rounded-[3px] px-1.5 py-0.5`}>OP</span>}
+                                <span className="text-neutral-400 text-xs">• {fmtSince(c.createdAt)}</span>
+                              </div>
+                              <div className="text-neutral-800 leading-6 whitespace-pre-wrap break-words">{c.text}</div>
+                            </div>
                           </div>
-                        </div>
-                      </li>
-                    );
-                  })}
+                        </li>
+                      );
+                    });
+                    return items;
+                  })()}
                 </ul>
                 <div className="border-t border-neutralBorder pt-3 grid gap-2">
                   <label className="text-xs text-neutral-500" htmlFor="new-comment">Add a comment</label>
