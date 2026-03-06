@@ -14,6 +14,7 @@ import ConvergenceChart from "../ConvergenceChart/ConvergenceChart";
 import VoteButton, { type VoteVariant } from "../VoteButton/VoteButton";
 import { castVote } from "../../services/vote-service";
 import { getUserProfile, type UserProfile } from "../../services/profile-service";
+import { trackEvent } from "../../lib/analytics";
 
 const playfair = Playfair_Display({ subsets: ["latin"], weight: ["700", "900"] });
 const jetmono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"] });
@@ -112,6 +113,7 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
     const prev = userVote;
     try {
       await castVote(prediction.id, next);
+      try { void trackEvent("vote_cast", { predictionId: prediction.id, variant: next }).catch(() => {}); } catch {}
       // optimistic local counters
       if (prev === next) {
         // no-op idempotent
@@ -191,7 +193,7 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
               <button
                 className="text-sm px-2 py-1 rounded border border-neutralBorder hover:bg-neutralBg"
                 aria-label="Share"
-                onClick={() => setShareOpen(true)}
+                onClick={() => { try { void trackEvent("share_open", { predictionId: prediction.id }).catch(() => {}); } catch {} setShareOpen(true); }}
                 title="Share"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className="text-neutral-700">
@@ -274,6 +276,7 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
                       if (!prediction.aiResolution) return;
                       try {
                         setResolving(true);
+                        try { void trackEvent("resolution_accept_ai", { predictionId: prediction.id, suggestion: prediction.aiResolution.suggestion, confidence: prediction.aiResolution.confidence }).catch(() => {}); } catch {}
                         await acceptAiSuggestion(prediction.id);
                         toast.success("Resolution saved");
                         onClose();
@@ -291,7 +294,7 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
                       disabled={resolving}
                       onClick={async (e) => {
                         e.stopPropagation();
-                        try { setResolving(true); await setOutcome(prediction.id, "calledIt"); toast.success("Marked as Called It"); onClose(); } catch (err: any) { toast.error(err?.message || "Failed"); } finally { setResolving(false); }
+                        try { setResolving(true); try { void trackEvent("resolution_override", { predictionId: prediction.id, outcome: "calledIt" }).catch(() => {}); } catch {} await setOutcome(prediction.id, "calledIt"); toast.success("Marked as Called It"); onClose(); } catch (err: any) { toast.error(err?.message || "Failed"); } finally { setResolving(false); }
                       }}
                     >Called It</button>
                     <button
@@ -299,7 +302,7 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
                       disabled={resolving}
                       onClick={async (e) => {
                         e.stopPropagation();
-                        try { setResolving(true); await setOutcome(prediction.id, "fence"); toast.success("Marked as Fence"); onClose(); } catch (err: any) { toast.error(err?.message || "Failed"); } finally { setResolving(false); }
+                        try { setResolving(true); try { void trackEvent("resolution_override", { predictionId: prediction.id, outcome: "fence" }).catch(() => {}); } catch {} await setOutcome(prediction.id, "fence"); toast.success("Marked as Fence"); onClose(); } catch (err: any) { toast.error(err?.message || "Failed"); } finally { setResolving(false); }
                       }}
                     >Fence</button>
                     <button
@@ -307,7 +310,7 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
                       disabled={resolving}
                       onClick={async (e) => {
                         e.stopPropagation();
-                        try { setResolving(true); await setOutcome(prediction.id, "botched"); toast.success("Marked as Botched"); onClose(); } catch (err: any) { toast.error(err?.message || "Failed"); } finally { setResolving(false); }
+                        try { setResolving(true); try { void trackEvent("resolution_override", { predictionId: prediction.id, outcome: "botched" }).catch(() => {}); } catch {} await setOutcome(prediction.id, "botched"); toast.success("Marked as Botched"); onClose(); } catch (err: any) { toast.error(err?.message || "Failed"); } finally { setResolving(false); }
                       }}
                     >Botched</button>
                   </div>
@@ -459,6 +462,7 @@ export default function PredictionModal({ prediction, onClose }: { prediction: P
                         try {
                           setCommentText("");
                           await addComment(prediction.id, text);
+                          try { void trackEvent("comment_posted", { predictionId: prediction.id }).catch(() => {}); } catch {}
                           toast.success("Comment posted");
                         } catch (err) {
                           toast.error("Failed to post comment");
